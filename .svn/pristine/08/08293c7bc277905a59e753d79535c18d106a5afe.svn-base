@@ -1,0 +1,524 @@
+<template>
+    <div class="main_box">
+      <v-title>
+        <li>
+          <a href="#/surveyResults">调查结果统计</a>
+        </li>
+        <li class="active" slot="name">满意度调查</li>
+      </v-title>
+      <div class="export">
+        <button class="btn btn-info" @click="exportEcharts">导出</button>
+      </div>
+      <div class="result_analyse">
+        <div class="subject" v-for="(item,index) in SatisfactionInfo" v-show="!noDataShow">
+            <!-- 左侧选项分析 -->
+            <div class="subject_left">
+                <div class="subject_left_title" @click="answerDetail(item.questionName,index)">
+                    <input type="checkbox" :value="item.questionId" v-model="questionId">
+                    <label for="">第{{index+1}}题：{{item[0].questionNamemc}}({{item[0].questionNameTypemc}}题)</label>
+                </div>
+                <div v-if="item[0].questionNameTypemc=='单选'">
+                    <table class="table table-bordered">
+                        <tbody>
+                            <tr v-for="single in item[0].data">
+                                <td>{{single.singleOpt}}</td>
+                                <td>{{single.singleOptTxt}}</td>
+                                <td>{{single.singleOptNum}}</td>
+                                <td>{{single.singleOptPer}}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div v-else-if="item[0].questionNameTypemc=='多选'">
+                    <table class="table table-bordered">
+                        <tbody>
+                            <tr v-for="multi in item[0].data">
+                                <td>{{multi.multiOpt}}</td>
+                                <td>{{multi.multiOptTxt}}</td>
+                                <td>{{multi.multiOptNum}}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div v-else-if="item[0].questionNameTypemc=='填空txt'">
+                    <!-- <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>答题人</th>
+                                <th>答题内容</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-show="!noDatashow2">
+                                <td>{{item[0].data.multiOpt}}</td>
+                                <td>{{item[0].data.multiOptTxt}}</td>
+                                <td>{{item[0].data.multiOptNum}}</td>
+                            </tr>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
+                            <tr v-show="noDatashow2">
+                                <td>暂无数据</td>
+                            </tr>
+                        </tbody>
+                    </table> -->
+                </div>
+            </div>
+             <!-- || (item.questionNameTypemc=='填空'&&item.fillingType=='double') ||  (item.questionType=='填空'&&item.fillingType=='num') -->
+            <div class="subject_right">
+                <ul class="subject_right_ul" v-show="item.questionNameTypemc=='单选'">
+                    <li v-for="(item,index) in echarts" :class='{active:index==active}' @click="cutEcharts(index)">
+                    {{item}}
+                    </li>
+                </ul>
+                <div :id="'echarts'+index" style="height: 255px;width: 600px;margin: 0 auto;" v-show="item.questionNameTypemc=='单选'"></div>
+            </div>
+            <img src="static/down.png" style="float:right;" alt=""  @click="answerDetail(item.questionName,index)">
+        </div> 
+        <dir v-show="noDataShow" style="text-align: center;font-size:24px;color: #1975b6;">
+            暂无数据
+        </dir>
+      </div>
+  </div>
+</template>
+<script>
+import vTitle from "../views/vTitle";
+// import Subject from "../views/Subject";
+export default {
+    data() {
+        return {
+            naireId:this.$route.query.id,
+            nairName:this.$route.query.nairName,
+            numbers:'1',
+            questionName: [],
+            SatisfactionInfo:[],       //满意度调查问卷数据
+            answerCon:[],              //每个问题答案
+            answerIndex:'0',           //答案对应的题目下标
+            echarts:['饼状图','圆环图','柱状图','条形图'],
+            echartsData:[],
+            echartsDataX:[],
+            echartsDataY:[],
+            echartsLegend:[],
+            active:0,
+            questionId:[],
+            all:[],
+            imgUrl:'',
+            noDataShow: false,
+            noDatashow2: false,
+            initTable: [],
+            exportPicArray:[],
+            singleCon:[],   //单选题选项
+            multiCon:[],    //多选选项
+            blankTxtCon:[],     //填空选项
+        }
+    },
+    components: { vTitle },
+    mounted(){
+        this.initSatisfaction();
+    },
+    methods: {
+        initSatisfaction(){         //所有题目列表
+            let param = new URLSearchParams()
+            param.append('questionnaireId', this.naireId)     //问卷ID
+            param.append('questionnaireName', this.nairName)   //问卷名称
+            this.axios({
+                method: 'post',
+                url: 'questionnaireAnswer.do?InquireDetailss',
+                async:false,    //或false,是否异步
+                data: param,
+            }).then(res=>{
+                for(var i=0;i<res.data.o.length;i++){
+                    if(res.data.o[i][0].questionNameTypemc == '单选,null'){
+                        res.data.o[i][0].questionNameTypemc = '单选';
+                        var singleOption = [];
+                        singleOption.push(res.data.o[i][0].onecontent);
+                        singleOption.push(res.data.o[i][0].twocontent);
+                        singleOption.push(res.data.o[i][0].threecontent);
+                        singleOption.push(res.data.o[i][0].fourcontent);
+                        singleOption.push(res.data.o[i][0].fivecontent);
+                        res.data.o[i][0].data=[];
+                        res.data.o[i][0].echarts = []
+                        for(var j=0;j<singleOption.length;j++){
+                            res.data.o[i][0].data.push({
+                                singleOpt:singleOption[j].split(':')[0],
+                                singleOptTxt:singleOption[j].split(':')[1].split(',')[0],
+                                singleOptNum:singleOption[j].split(':')[1].split(',')[1],
+                                singleOptPer:singleOption[j].split(':')[1].split(',')[2]
+                            })
+                            res.data.o[i][0].echarts.push({
+                                value:singleOption[j].split(':')[1].split(',')[2],
+                                name:singleOption[j].split(':')[1].split(',')[0]
+                            })
+                        }
+                        var that = this;
+                        setTimeout(function(){
+                            that.cutEcharts(0,res.data.o[i][0].echarts,"echarts"+i);
+                        },300)
+                    }else if(res.data.o[i][0].questionNameTypemc == '多选,null'){
+                        res.data.o[i][0].questionNameTypemc = '多选';
+                        // var multiOption = res.data.o[i][0]
+                        // delete multiOption.questionNamemc;
+                        // delete multiOption.questionNameTypemc;
+                        res.data.o[i][0].data=[];
+                        for(var j=0;j<res.data.o[i][0].length;j++){
+                            
+                            res.data.o[i][0].data.push({
+                                multiOpt:multiOption[j].split(':')[0],
+                                multiOptTxt:multiOption[j].split(':')[1].split(',')[0],
+                                multiOptNum:multiOption[j].split(':')[1].split(',')[1]
+                            })
+                        }
+                    }else if(res.data.o[i][0].questionNameTypemc == '填空,num'){
+                        var multiOption = res.data.o[i][0]
+                        delete multiOption.questionNamemc;
+                        delete multiOption.questionNameTypemc;
+                        res.data.o[i][0].data=[];
+                        for(var j=0;j<multiOption.length;j++){
+                            res.data.o[i][0].data.push({
+                                multiOpt:multiOption[j].split(':')[0],
+                                multiOptTxt:multiOption[j].split(':')[1].split(',')[0],
+                                multiOptNum:multiOption[j].split(':')[1].split(',')[1]
+                            })
+                        }
+                    }else if(res.data.o[i][0].questionNameTypemc == '填空,txt'){
+                        // res.data.o[i][0].questionNameTypemc = '填空txt';
+                        // var blankOption = delete res.data.o[i][0].questionNamemc;
+                        // blankOption = delete blankOption.questionNameTypemc;
+                        // res.data.o[i][0].data=[];
+                        // for(var j=0;j<blankOption.length;j++){
+                        //     res.data.o[i][0].data.push({
+                        //         blankOpt:blankOption[j].split(':')[0],
+                        //         blankOptTxt:blankOption[j].split(':')[1].split(',')[0],
+                        //         blankOptNum:blankOption[j].split(':')[1].split(',')[1]
+                        //     })
+                        // }
+                        // var blankTxtOption = delete res.data.o[i][0].questionNamemc;
+                        // blankTxtOption = delete blankTxtOption.questionNameTypemc;
+                        // for(var j=0;j<blankTxtOption.length;j++){
+                        //     this.blankTxtCon.push([{
+                        //         blankTxtOpt:blankTxtOption[j].split(':')[0],
+                        //         blankTxtOptTxt:blankTxtOption[j].split(':')[1].split(',')[0],
+                        //         blankTxtOptNum:blankTxtOption[j].split(',')[1]
+                        //     }])
+                        // }
+                    }
+                }
+                this.SatisfactionInfo = res.data.o
+                console.log(this.SatisfactionInfo);
+            })
+        }, 
+        //answerDetail(questionName,numbers,arrayAll){    //当前查看的题目的选项
+        answerDetail(){    //当前查看的题目的选项
+            let param = new URLSearchParams()
+            param.append('questionnaireId', this.naireId)
+            // param.append('numbers', numbers)
+            // param.append('questionName', questionName)
+            param.append('questionnaireName', this.nairName)
+            this.axios({
+                method: 'post',
+                url: 'questionnaireAnswer.do?InquireDetails',
+                async:false,    //或false,是否异步
+                data: param,
+            }).then(res=>{
+                console.log(res.data.o);
+                var type = "";
+                var arrType = res.data.two.split(',')
+                if(arrType[0] == "多选"){
+                    type = "多选"
+                }else if(arrType[0] == "单选"){
+                    type = "单选"
+                }else {
+                    if(arrType[1] == "num"){
+                        type = "num"
+                    }else if(arrType[1] == "text"){
+                        type = "text"
+                    }else if(arrType[1] == "double"){
+                        type = "double"
+                    }else {
+                        type = "填空"
+                    }
+                }
+                var listAnswer=[];
+                this.answerCon = [];
+                this.echartsData = [];
+                this.echartsDataX = [];
+                this.echartsDataY = [];
+                this.initTable = []
+                if(type == '单选' || type == "num" || type == 'double'){
+                    var arr = [];  
+                    var num;
+                    if(res.data.o != null){
+                        num = Object.keys(res.data.o).length;
+                    }
+                    var one,two,three,four,five;
+                    switch(num){
+                        case 1:
+                        arr.push(res.data.o.onecontent)
+                        break;
+                        case 2:
+                        arr.push(res.data.o.onecontent,res.data.o.twocontent)
+                        break;
+                        case 3:
+                        arr.push(res.data.o.onecontent,res.data.o.twocontent,res.data.o.threecontent)
+                        break;
+                        case 4:
+                        arr.push(res.data.o.onecontent,res.data.o.twocontent,res.data.o.threecontent,res.data.o.fourcontent)
+                        break;
+                        case 5:
+                        arr.push(res.data.o.onecontent,res.data.o.twocontent,res.data.o.threecontent,res.data.o.fourcontent,res.data.o.fivecontent)
+                        break;
+                    }
+                    for(var i=0;i<arr.length;i++){
+                        this.answerCon.push(arr[i].split(',').join(" "));
+                    }
+                    if(this.answerCon.length>0) listAnswer=this.answerCon;
+                    var arr2;
+                    console.log(arr);
+                    for(var i=0;i<arr.length;i++){
+                        arr2 = arr[i].split(',');
+                        this.echartsData.push({
+                            //value: arr2[1].split("/")[0],
+                            value: arr2[2],
+                            name: arr2[0].split(":")[1]
+                        })
+                        this.echartsDataX.push(arr2[0].split(":")[1])
+                        this.echartsDataY.push(arr2[2])
+                    }
+                }else if(type == '多选'){
+                    var arr = [];  
+                    var num;
+                    if(res.data.o != null){
+                        num = Object.keys(res.data.o).length;
+                    }
+                    var one,two,three,four,five;
+                    switch(num){
+                        case 1:
+                        arr.push(res.data.o.onecontent)
+                        break;
+                        case 2:
+                        arr.push(res.data.o.onecontent,res.data.o.twocontent)
+                        break;
+                        case 3:
+                        arr.push(res.data.o.onecontent,res.data.o.twocontent,res.data.o.threecontent)
+                        break;
+                        case 4:
+                        arr.push(res.data.o.onecontent,res.data.o.twocontent,res.data.o.threecontent,res.data.o.fourcontent)
+                        break;
+                        case 5:
+                        arr.push(res.data.o.onecontent,res.data.o.twocontent,res.data.o.threecontent,res.data.o.fourcontent,res.data.o.fivecontent)
+                        break;
+                    }
+                    for(var i=0;i<arr.length;i++){
+                        var temporary = arr[i].split(',');
+                        this.answerCon.push({'multiSelOpt':arr[i].split(':')[0],'multiSelCon':temporary[0].split(":")[1],'multiSelNum':arr[i].split(',')[1]})
+                        // this.multiSelOpt.push(arr[i].split(':')[0]);
+                        // this.multiSelNum.push(arr[i].split(',')[1]);
+                        //this.multiSelCon.push(temporary[0].split(":")[0]);
+                    }
+                    // multiSel = 
+                }else{
+                    console.log(res.data.o)
+                    if(res.data.o == "" || res.data.o == null){
+                        this.initTable = []
+                        this.noDatashow2 = true
+                    }else {
+                        this.initTable = res.data.o
+                        this.noDatashow2 = false
+                    }
+                }
+                this.answerIndex = res.data.s
+                setTimeout(() => {
+                    this.cutEcharts(0);
+                    // if(trueOrFalse){
+                    //     arrayAll.push({
+                    //         index: numbers,
+                    //         questionName:questionName,
+                    //         answer:listAnswer,
+                    //         imgUrl:this.imgUrl,
+                    //         type: type
+                    //     }) 
+                    // }       
+                }, 300);
+            })
+        },
+        cutEcharts(index,echartsData,id){       //当前查看的题目的echarts加载
+            console.log(index);
+            console.log(echartsData);
+            console.log(id);
+            // 基于准备好的dom，初始化echarts实例
+            console.log("&&&&&******");
+            console.log(document.getElementById("echarts0"));
+            var myChart = this.$echarts.init(document.getElementById(id));
+            console.log("***&&&&&&");
+            var option;
+            if(index == 0){    
+                console.log("********");
+                myChart.setOption({
+                    tooltip : {
+                        trigger: 'item',
+                        formatter: "{b} : {c}"
+                    },
+                    xAxis: { show:false },
+                    yAxis: { show:false },
+                    series : [{
+                        type: 'pie',
+                        radius : '55%',
+                        data:echartsData
+                    }]
+                });
+                console.log("***********");
+            }
+            // else if(index == 1){
+            //     myChart.setOption({
+            //         tooltip : {
+            //             trigger: 'item',
+            //             formatter: "{b} : {c} ({d}%)"
+            //         },
+            //         xAxis: { show:false },
+            //         yAxis: { show:false },
+            //         series : [{
+            //             type: 'pie',
+            //             radius: ['50%', '70%'],
+            //             avoidLabelOverlap: false,
+            //             data:this.echartsData
+            //         }]
+            //     });
+            // }else if(index == 2){
+            //     myChart.setOption({
+            //     xAxis: {
+            //         show:true,
+            //         type: 'category',
+            //         data: this.echartsDataX
+            //     },
+            //     yAxis: { show:true,type: 'value' },
+            //     series: [{
+            //         data: this.echartsDataY,
+            //         type: 'bar'
+            //     }]
+            //     });
+            // }else if(index == 3){
+            //     myChart.setOption({
+            //     xAxis: { type: 'value' },
+            //     yAxis: {
+            //         type: 'category',
+            //         data: this.echartsDataX
+            //     },
+            //     series: [{
+            //         data: this.echartsDataY,
+            //         type: 'bar'
+            //     }]
+            //     });
+            // }
+console.log(myChart);
+            this.imgUrl = " ";
+            var img = new Image();
+            img.src = myChart.getDataURL({
+                pixelRatio: 2,
+                backgroundColor: '#fff'
+            });
+            this.imgUrl = img.src   
+            this.active = index   
+        },
+        exportEcharts(){
+            if($(".subject_left_title input").length == 0){  //页面无数据
+                this.$dialog.alert("当前页面暂无数据")
+            }else{   //页面有数据
+                this.all=[]
+                if($(".subject_left_title input:checked").length == 0){//没选择，全部导出
+                    this.all=this.SatisfactionInfo;
+                    for(var i=0;i<this.all.length;i++){
+
+                    }
+                }else {  //选择哪条导出哪条
+                    //this.all=
+                }
+                let param = new URLSearchParams()
+                param.append('question', this.nairName)
+                param.append('resultArray', JSON.stringify(this.all))
+                this.axios({
+                    method: 'post',
+                    url: 'questionnaireAnswer.do?publicExport',         
+                    data: param,
+                }).then(res=>{
+                    console.log(res.data.o);   
+                    if(res.data.e == 0){        
+                        window.location.href = "questionnaireAnswer.do?download&filePath="+res.data.o    
+                    }else if(res.data.e == 1){
+                        this.$dialog.alert("导出失败")
+                    }
+                })
+            } 
+        }
+    }
+};
+</script>
+<style scoped>
+.main_box {
+  position: relative;
+}
+.export {
+  position: absolute;
+  top: 4px;
+  right: 2%;
+}
+.result_analyse {
+  width: 96%;
+  margin: 0 auto;
+}
+.subject{
+    background: #fff;
+    padding: 10px 20px;
+    /* border: 1px solid #BBBBBB; */
+    margin-bottom: 8px;
+}
+.subject_left{
+    width: 40%;
+}
+.subject_right{
+  width: 55%;
+}
+.subject_left img{
+  float: right;
+}
+.subject_left_title{
+    padding: 10px 0;
+    color: #1975b6;
+}
+.subject_left_title label {
+    cursor: pointer;
+}
+.subject_left_answer{
+    margin-left: 20px;
+}
+.subject_left_answer li{
+    line-height: 50px;
+}
+.subject_left,.subject_right{
+    display: inline-block;
+    vertical-align: top;
+}
+.subject_right_ul{
+    display: block;
+    width: 255px;
+    margin: 0 auto;
+} 
+.subject_right_ul:after{
+    content: '';
+    display: block;
+    clear: both;
+}
+.subject_right_ul li{
+    float: left;
+    border: 1px solid #63B4EC;
+    border-radius: 3px;
+    padding: 3px 10px;
+    cursor: pointer;
+}
+.subject_right_ul li.active {
+  border: none;
+  background: #63B4EC;
+  color: #fff;
+}
+.echarts{
+    border: 1px solid #ddd;
+    margin-top: 30px;
+}
+</style>

@@ -1,0 +1,168 @@
+<template>
+  <div class="bodys">
+    <div class="search">
+        类型：
+        <select name="" id="remindType" class="form-control" v-model="remindType">
+            <option value="" selected>全部</option>
+            <option value="未答题用户提醒">未答题用户提醒</option>
+            <option value="反馈消息提醒">反馈消息提醒</option>
+            <option value="审核消息提醒">审核消息提醒</option>
+        </select>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        <button class="btn btn-primary" @click="initRemind(remindType,1,10)">查询</button>
+        <button class="btn btn-success pull-right" @click="allSure">全部确定</button>
+    </div>
+    <table id="" class="table table-responsive">
+        <thead>
+        <tr>
+            <!-- <th></th> -->
+            <th>提醒信息</th>
+            <th>类型</th>
+            <th>提醒时间</th>
+            <th>未通过原因</th>
+            <th>操作</th>
+        </tr>
+        </thead>
+        <tbody id="remindBody">
+        <tr v-for="item in initData" v-show="!noDataShow">
+            <td v-show="hide"><input type="text"></td>
+            <td :title="item.remindInformationContent">{{item.remindInformationContent}}</td>
+            <td :title="item.remindingtype">{{item.remindingtype}}</td>
+            <td :title="item.remindingTime">{{item.remindingTime}}</td>
+            <td v-if="item.reason == null || item.reason == ''">--</td>
+            <td v-else :title="item.reason" >{{item.reason}}</td>
+            <td class="red" v-if="item.remindingState == '确定'"><a href="#" @click="remindSure(item.remindingId)">{{item.remindingState}}</a></td>
+            <td class="green" v-else><a href="#">{{item.remindingState}}</a></td>
+        </tr>
+        <tr v-show="noDataShow">
+            <td colspan="4">暂无数据</td>
+        </tr>
+        </tbody>
+    </table>
+    <v-page :setting="pageSet" @page-change="pageChange"></v-page>
+  </div>
+</template>
+<script>
+export default {
+    data() {
+        return {
+            hide:false,
+            pageSet: {
+                totalRow: 1,//required option
+                language: 'cn',//default: 'cn'
+                pageSizeMenu: false,//default: [10, 20, 50, 100]
+                info: false,
+                align: 'center'
+            },
+            page:"",
+            rows:"",
+            remindType:"",
+            initData: [],
+            remindId:[],
+            noDataShow: false
+        }
+    },
+    computed:{
+        getUserRole(){
+            return this.$store.state.userRole
+        }
+    },
+    methods: {
+        pageChange(pInfo){
+            this.page = pInfo.pageNumber
+            this.rows = pInfo.pageSize
+            this.initRemind(this.remindType,this.page,this.rows)
+        },
+        initRemind(remindType,page,rows){
+            let param = new URLSearchParams()
+            param.append('remindingtype',remindType)
+            param.append('page',page)
+            param.append('rows',rows)
+            this.axios({
+                method: 'post',
+                url: 'reminding.do?FindRemindingInformation',
+                data: param,
+            }).then(res=>{
+                if(res.data.e == 0){
+                    this.initData = res.data.o
+                    this.pageSet.totalRow = res.data.n
+                    this.noDataShow = false
+                }else if(res.data.e == 1){
+                    this.pageSet.totalRow = 1
+                    this.noDataShow = true
+                }
+            })
+        },
+        remindSure(id){
+            let param = new URLSearchParams()
+            param.append('remindingId', id)
+            this.axios({
+                method: 'post',
+                url: 'reminding.do?remindingAdopt',
+                data: param,
+            }).then(res=>{
+                console.log(res.data.o);
+                if(res.data.e == 0){
+                    this.initRemind(this.remindType,this.page,this.rows)
+                    this.stateCommit()
+                    this.stateCommit2()
+                }
+            })
+        },
+        allSure(){
+            this.$dialog.confirm('是否把全部消息标记为已确定？').then(()=>{
+                // 点击确定执行
+                 this.axios.get('reminding.do?remindingAdoptAll').then(res=>{
+                    if(res.data.e == 0){
+                        this.initRemind(this.remindType,this.page,this.rows)
+                        this.stateCommit()
+                        this.stateCommit2()
+                    }
+                })
+            })
+        },
+        stateCommit(){
+           this.axios.get('FeedbackIng.do?StatisticalFeedbackState').then(res=>{
+               if(res.data.e == 0){
+                    this.$store.commit('updateFeedbackNum',res.data.o)
+                }
+           })
+           this.axios.get('informationaudit.do?FindInformationAuditTotal').then(res=>{
+               if(res.data.e == 0){
+                    this.$store.commit('updateMessageNum',res.data.o.totalQuantity)
+               }
+           })
+        },
+        stateCommit2(){
+            var auditType = ''
+            if(this.getUserRole == "" || this.getUserRole == null){
+                auditType = "效益评估结果审核,反馈消息审核,问卷审核"
+            }else {
+                auditType = this.getUserRole
+            }
+            let param = new URLSearchParams();
+            param.append("auditType",auditType);
+            this.axios({
+                method: 'post',
+                url: 'informationaudit.do?FindInformationAuditCount',
+                data: param
+            }).then(res=>{
+                if(res.data.e == 0){
+                    this.$store.commit('updateReviewinfoNum',res.data.o.auditNum)
+                    this.$store.commit('updateReminderNum',res.data.o.remindNum)
+                }
+            })
+        }
+    }
+}
+</script>
+<style scoped>
+.red{
+    color:#f00;
+}
+.green{
+    color:#0f0;
+}
+</style>
+
+

@@ -1,0 +1,419 @@
+<template>
+    <div class="main_box">
+      <v-title>
+        <li>
+          <a href="#/surveyResults">调查结果统计</a>
+        </li>
+        <li class="active" slot="name">满意度调查</li>
+      </v-title>
+      <div class="export">
+        <button class="btn btn-info" @click="exportEcharts">导出</button>
+      </div>
+      <div class="result_analyse">
+        <div class="subject" v-for="(item,index) in SatisfactionInfo" v-show="!noDataShow">
+            <!-- 左侧选项分析 -->
+            <div class="subject_left">
+                <div class="subject_left_title" @click="answerDetail(item.questionName,index)">
+                    <input type="checkbox" :value="item.questionId" v-model="questionId">
+                    <label for="">第{{index+1}}题：{{item.questionName}}({{item.questionType}}题)</label>
+                </div>
+                <ul class="subject_left_answer" v-if="answerIndex == index" v-show="item.questionType=='单选' || (item.questionType=='填空'&&item.fillingType=='double') ||  (item.questionType=='填空'&&item.fillingType=='num')">
+                    <li v-for="item2 in answerCon" >{{item2}}</li>
+                </ul>
+                <div v-if="answerIndex == index" v-show="item.questionType=='多选'">
+                    <table class="table table-bordered">
+                        <tbody>
+                            <tr v-for="item in answerCon">
+                                <td>{{item.multiSelOpt}}</td>
+                                <td>{{item.multiSelCon}}</td>
+                                <td>{{item.multiSelNum}}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div v-if="answerIndex == index" v-show="item.questionType=='填空'&&item.fillingType=='txt'">
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>答题人</th>
+                                <th>答题内容</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-show="!noDatashow2" v-for="item in initTable">
+                                <td>{{item.userNames}}</td>
+                                <td>{{item.titleAnswer}}</td>
+                            </tr>
+                            <tr v-show="noDatashow2">
+                                <td>暂无数据</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="subject_right" v-if="answerIndex == index">
+                <ul class="subject_right_ul" v-show="item.questionType=='单选' || (item.questionType=='填空'&&item.fillingType=='double') ||  (item.questionType=='填空'&&item.fillingType=='num')">
+                    <li v-for="(item,index) in echarts" :class='{active:index==active}' @click="cutEcharts(index)">
+                    {{item}}
+                    </li>
+                </ul>
+                <div id="echarts1" style="height: 255px;width: 600px;margin: 0 auto;" v-show="item.questionType=='单选' || (item.questionType=='填空'&&item.fillingType=='double') ||  (item.questionType=='填空'&&item.fillingType=='num')"></div>
+            </div>
+            <img src="static/down.png" style="float:right;" alt=""  @click="answerDetail(item.questionName,index)">
+        </div> 
+        <dir v-show="noDataShow" style="text-align: center;font-size:24px;color: #1975b6;">
+            暂无数据
+        </dir>
+      </div>
+  </div>
+</template>
+<script>
+import vTitle from "../views/vTitle";
+// import Subject from "../views/Subject";
+export default {
+    data() {
+        return {
+            naireId:this.$route.query.id,
+            nairName:this.$route.query.nairName,
+            numbers:'1',
+            questionName: [],
+            SatisfactionInfo:[],       //满意度调查问卷数据
+            answerCon:[],              //每个问题答案
+            answerIndex:'0',           //答案对应的题目下标
+            echarts:['饼状图','圆环图','柱状图','条形图'],
+            echartsData:[],
+            echartsDataX:[],
+            echartsDataY:[],
+            echartsLegend:[],
+            active:0,
+            questionId:[],
+            all:[],
+            imgUrl:'',
+            noDataShow: false,
+            noDatashow2: false,
+            initTable: []
+        }
+    },
+    components: { vTitle },
+    mounted(){
+        this.initSatisfaction(this.naireId);
+    },
+    methods: {
+        initSatisfaction(naireId){         //所有题目列表
+            let param = new URLSearchParams()
+            param.append('id', naireId)
+            this.axios({
+                method: 'post',
+                url: 'questionBank.do?PreviewQuestionnaire',         
+                data: param,
+            }).then(res=>{
+                if(res.data.e == 0){
+                        this.SatisfactionInfo = res.data.o
+                        this.all=[];
+                        for(var i=0;i<res.data.o.length;i++){
+                            this.questionName.push(res.data.o[i].questionName)                
+                        }          
+                        this.answerDetail(this.questionName[0],0,this.all); 
+                        this.noDataShow = false      
+                        console.log(this.all)                         
+                }else {
+                    this.noDataShow = true    
+                }
+            })
+        }, 
+        answerDetail(questionName,numbers,arrayAll){    //当前查看的题目的选项
+            let param = new URLSearchParams()
+            param.append('questionnaireId', this.naireId)
+            param.append('numbers', numbers)
+            param.append('questionName', questionName)
+            param.append('questionnaireName', this.nairName)
+            this.axios({
+                method: 'post',
+                url: 'questionnaireAnswer.do?InquireDetails',
+                async:false,    //或false,是否异步
+                data: param,
+            }).then(res=>{
+                var type = "";
+                var arrType = res.data.two.split(',')
+                if(arrType[0] == "多选"){
+                    type = "多选"
+                }else if(arrType[0] == "单选"){
+                    type = "单选"
+                }else {
+                    if(arrType[1] == "num"){
+                        type = "num"
+                    }else if(arrType[1] == "text"){
+                        type = "text"
+                    }else if(arrType[1] == "double"){
+                        type = "double"
+                    }else {
+                        type = "填空"
+                    }
+                }
+                var listAnswer=[];
+                this.answerCon = [];
+                this.echartsData = [];
+                this.echartsDataX = [];
+                this.echartsDataY = [];
+                this.initTable = []
+                if(type == '单选' || type == "num" || type == 'double'){
+                    var arr = [];  
+                    var num;
+                    if(res.data.o != null){
+                        num = Object.keys(res.data.o).length;
+                    }
+                    var one,two,three,four,five;
+                    switch(num){
+                        case 1:
+                        arr.push(res.data.o.onecontent)
+                        break;
+                        case 2:
+                        arr.push(res.data.o.onecontent,res.data.o.twocontent)
+                        break;
+                        case 3:
+                        arr.push(res.data.o.onecontent,res.data.o.twocontent,res.data.o.threecontent)
+                        break;
+                        case 4:
+                        arr.push(res.data.o.onecontent,res.data.o.twocontent,res.data.o.threecontent,res.data.o.fourcontent)
+                        break;
+                        case 5:
+                        arr.push(res.data.o.onecontent,res.data.o.twocontent,res.data.o.threecontent,res.data.o.fourcontent,res.data.o.fivecontent)
+                        break;
+                    }
+                    for(var i=0;i<arr.length;i++){
+                        this.answerCon.push(arr[i].split(',').join(" "));
+                    }
+                    if(this.answerCon.length>0) listAnswer=this.answerCon;
+                    var arr2;
+                    for(var i=0;i<arr.length;i++){
+                        arr2 = arr[i].split(',');
+                        this.echartsData.push({
+                            value: arr2[1].split("/")[0],
+                            name: arr2[0].split(":")[1]
+                        })
+                        this.echartsDataX.push(arr2[0].split(":")[1])
+                        this.echartsDataY.push(arr2[1].split("/")[0])
+                    }
+                }else if(type == '多选'){
+                    var arr = [];  
+                    /* var num;
+                    if(res.data.o != null){
+                        num = Object.keys(res.data.o).length;
+                    }
+                    var one,two,three,four,five;
+                    switch(num){
+                        case 1:
+                        arr.push(res.data.o.onecontent)
+                        break;
+                        case 2:
+                        arr.push(res.data.o.onecontent,res.data.o.twocontent)
+                        break;
+                        case 3:
+                        arr.push(res.data.o.onecontent,res.data.o.twocontent,res.data.o.threecontent)
+                        break;
+                        case 4:
+                        arr.push(res.data.o.onecontent,res.data.o.twocontent,res.data.o.threecontent,res.data.o.fourcontent)
+                        break;
+                        case 5:
+                        arr.push(res.data.o.onecontent,res.data.o.twocontent,res.data.o.threecontent,res.data.o.fourcontent,res.data.o.fivecontent)
+                        break;
+                    } */
+                    arr=res.data.o;
+                    console.log(arr);
+                    console.log(arr.length);
+                    for(var i in arr){
+                        var temporary = arr[i].split(',');
+                        console.log(temporary);
+                        this.answerCon.push({'multiSelOpt':arr[i].split(':')[0],'multiSelCon':temporary[0].split(":")[1],'multiSelNum':arr[i].split(',')[1]})
+                        // this.multiSelOpt.push(arr[i].split(':')[0]);
+                        // this.multiSelNum.push(arr[i].split(',')[1]);
+                        //this.multiSelCon.push(temporary[0].split(":")[0]);
+                    }
+                    console.log(this.answerCon);
+                    // multiSel = 
+                }else{
+                    console.log(res.data.o)
+                    if(res.data.o == "" || res.data.o == null){
+                        this.initTable = []
+                        this.noDatashow2 = true
+                    }else {
+                        this.initTable = res.data.o
+                        this.noDatashow2 = false
+                    }
+                }
+                this.answerIndex = res.data.s
+                setTimeout(() => {
+                    this.cutEcharts(0);
+                    // if(trueOrFalse){
+                    //     arrayAll.push({
+                    //         index: numbers,
+                    //         questionName:questionName,
+                    //         answer:listAnswer,
+                    //         imgUrl:this.imgUrl,
+                    //         type: type
+                    //     }) 
+                    // }       
+                }, 300);
+            })
+        },
+        cutEcharts(index){       //当前查看的题目的echarts加载
+            // 基于准备好的dom，初始化echarts实例
+            var myChart = this.$echarts.init(document.getElementById('echarts1'));
+            var option;
+            if(index == 0){    
+                myChart.setOption({
+                    tooltip : {
+                        trigger: 'item',
+                        formatter: "{b} : {c} ({d}%)"
+                    },
+                    xAxis: { show:false },
+                    yAxis: { show:false },
+                    series : [{
+                        type: 'pie',
+                        radius : '55%',
+                        data:this.echartsData
+                    }]
+                });
+            }else if(index == 1){
+                myChart.setOption({
+                    tooltip : {
+                        trigger: 'item',
+                        formatter: "{b} : {c} ({d}%)"
+                    },
+                    xAxis: { show:false },
+                    yAxis: { show:false },
+                    series : [{
+                        type: 'pie',
+                        radius: ['50%', '70%'],
+                        avoidLabelOverlap: false,
+                        data:this.echartsData
+                    }]
+                });
+            }else if(index == 2){
+                myChart.setOption({
+                xAxis: {
+                    show:true,
+                    type: 'category',
+                    data: this.echartsDataX
+                },
+                yAxis: { show:true,type: 'value' },
+                series: [{
+                    data: this.echartsDataY,
+                    type: 'bar'
+                }]
+                });
+            }else if(index == 3){
+                myChart.setOption({
+                xAxis: { type: 'value' },
+                yAxis: {
+                    type: 'category',
+                    data: this.echartsDataX
+                },
+                series: [{
+                    data: this.echartsDataY,
+                    type: 'bar'
+                }]
+                });
+            }
+
+            this.imgUrl = " ";
+            var img = new Image();
+            img.src = myChart.getDataURL({
+                pixelRatio: 2,
+                backgroundColor: '#fff'
+            });
+            this.imgUrl = img.src   
+            this.active = index   
+        },
+        exportEcharts(){
+            let param = new URLSearchParams()
+            param.append('question', this.nairName)
+            param.append('resultArray', JSON.stringify(this.all))
+            this.axios({
+                method: 'post',
+                url: 'questionnaireAnswer.do?publicExport',         
+                data: param,
+            }).then(res=>{
+                console.log(res.data.o);   
+                if(res.data.e == 0){        
+                    window.location.href = "questionnaireAnswer.do?download&filePath="+res.data.o    
+                }else if(res.data.e == 1){
+                    this.$dialog.alert("导出失败")
+                }
+            })
+        }
+    }
+};
+</script>
+<style scoped>
+.main_box {
+  position: relative;
+}
+.export {
+  position: absolute;
+  top: 4px;
+  right: 2%;
+}
+.result_analyse {
+  width: 96%;
+  margin: 0 auto;
+}
+.subject{
+    background: #fff;
+    padding: 10px 20px;
+    /* border: 1px solid #BBBBBB; */
+    margin-bottom: 8px;
+}
+.subject_left{
+    width: 40%;
+}
+.subject_right{
+  width: 55%;
+}
+.subject_left img{
+  float: right;
+}
+.subject_left_title{
+    padding: 10px 0;
+    color: #1975b6;
+}
+.subject_left_title label {
+    cursor: pointer;
+}
+.subject_left_answer{
+    margin-left: 20px;
+}
+.subject_left_answer li{
+    line-height: 50px;
+}
+.subject_left,.subject_right{
+    display: inline-block;
+    vertical-align: top;
+}
+.subject_right_ul{
+    display: block;
+    width: 255px;
+    margin: 0 auto;
+} 
+.subject_right_ul:after{
+    content: '';
+    display: block;
+    clear: both;
+}
+.subject_right_ul li{
+    float: left;
+    border: 1px solid #63B4EC;
+    border-radius: 3px;
+    padding: 3px 10px;
+    cursor: pointer;
+}
+.subject_right_ul li.active {
+  border: none;
+  background: #63B4EC;
+  color: #fff;
+}
+.echarts{
+    border: 1px solid #ddd;
+    margin-top: 30px;
+}
+</style>

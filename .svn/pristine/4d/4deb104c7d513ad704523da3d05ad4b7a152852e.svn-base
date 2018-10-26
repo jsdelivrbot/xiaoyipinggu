@@ -1,0 +1,604 @@
+<template>
+  <div>
+    <div class="analysis_header clearfix">
+        <ul class="nav nav-pills pull-left">
+            <li role="presentation" :class="{active: index==0}" v-for="(item,index) in navList">
+              <router-link :to="item.navPath">{{item.navName}}</router-link>
+            </li>
+        </ul>
+        <!-- <button class="btn btn-warning pull-right" onclick="history.back();">返回</button> -->
+    </div>
+    <div class="analysis_body">
+        <transition name="fade">
+            <div class="questionnaire pull-left" v-show="isShow">
+              <ol class="list-group">
+                  <li class="list-group-item questionnaire_height">
+                      <!--<span class="badge glyphicon glyphicon-backward"></span>-->
+                      问卷
+                  </li>
+                  <li class="list-group-item" v-for="(item,index) in initData">
+                     {{item[1]}}--({{item[2]}})
+                  </li>
+              </ol>
+          </div>
+        </transition>
+        <div class="arrow" v-on:click="isShow = !isShow">
+            <span class="glyphicon" :class="{'glyphicon-forward' : !isShow,'glyphicon-backward': isShow}"></span>
+        </div>
+        <div class="benefit pull-right" :class="{active: !isShow}">
+            <div class="benefit_title">
+                <span>问卷效益评估</span>
+                <div class="benefit_btns pull-right">
+                    <!-- <button class="btn btn-warning">计算</button> -->
+                    <button class="btn btn-success submit_btn" @click="submitReview()">提交审核</button>
+                    <button class="btn btn-info" @click="exportFn()">导出</button>
+                    <button class="btn btn-warning" @click="back()">返回</button>
+                </div>
+            </div>
+            <div>
+                <table class="table table-responsive table-bordered" style="border: none;table-layout: fixed;">
+                  <!-- 答案标题 -->
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" @click="checkedAll" :checked="checkedFlag()"></th>
+                            <th class="th">编号</th>
+                            <th class="th">参与调查人员</th>
+                            <th class="title th" :class="matchClass(index)" v-for="(item,index) in initTh">{{splitNumber(index)}}题</th>
+                            <th class="title satisfy th" v-for="(item,index) in satisfyEquation">{{index}}</th>
+                            <th class="title zongmanyidu th hide" v-if="zongmanyidu==''||zongmanyidu==null">0</th>
+                            <th class="title zongmanyidu th" v-for="(item,index) in zongmanyidu" v-if="zongmanyidu!=''&&zongmanyidu!=null">{{index}}</th>
+                        </tr>
+                    </thead>
+                    <!-- 答案内容 -->
+                    <tbody id="tbody">
+                        <tr v-for="(item,index) in initTableVal" :id='index' class="topicTr" :class="item.answerId">
+                            <td><input type="checkbox"  :value="item.answerId" v-model="checkIds"/></td>
+                            <td>{{index + 1}}</td>
+                            <td class="answerContent">{{item.userName}}</td>
+                            <td class="result classTopic exam tc" :class="matchClass(index)" v-for="(item2,index) in item.answer" :title="item2">{{item2}}</td>
+                            <td class="exam satisfy tc" v-for="(item,index) in satisfyEquation" :title="item"></td>
+                            <td class="exam zongmanyidu tc hide" v-if="zongmanyidu==''||zongmanyidu==null" :title="item">0</td>
+                            <td class="exam zongmanyidu tc" v-for="(item,index) in zongmanyidu" v-if="zongmanyidu!=''&&zongmanyidu!=null" :title="item"></td>
+                        </tr>
+                        <tr id="zongji">
+                            <td colspan="3">总计</td>
+                            <td class="exam total" v-for="(item,index) in initTh"></td>
+                            <td class="satisfy total" v-for="(item,index) in satisfyEquation"></td>
+                            <td class="total zongmanyidu hide" v-if="zongmanyidu==''||zongmanyidu==null">0</td>
+                            <td class="total zongmanyidu" v-for="(item,index) in zongmanyidu" v-if="zongmanyidu!=''&&zongmanyidu!=null">{{item}}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+  </div>
+</template>
+<style scoped>
+.analysis_header {
+  padding: 2px 3%;
+  background: rgb(242, 242, 242);
+}
+.analysis_header button.btn {
+  padding: 5px 30px;
+  margin-top: 4px;
+}
+.analysis_body {
+  width: 94%;
+  margin: 0 auto;
+  height: calc(100% - 44px);
+}
+.questionnaire {
+  width: 330px;
+  height: calc(100% - 140px);
+  position: absolute;
+  overflow: auto;
+}
+li.questionnaire_height {
+  background: rgba(211, 231, 238, 0.2);
+  color: rgb(39, 107, 178);
+  border-bottom: 1px solid rgba(9, 157, 207, 0.6) !important;
+}
+.questionnaire ul li {
+  cursor: pointer;
+}
+.questionnaire ul li:nth-child(even) {
+  background: rgb(244, 244, 244);
+}
+.questionnaire ul li:hover {
+  background: rgba(211, 231, 238, 0.2);
+  color: rgb(39, 107, 178);
+}
+.questionnaire ul li span.badge {
+  display: block;
+  color: rgb(39, 107, 178);
+  background: transparent;
+}
+.arrow {
+  width: 3%;
+  background: rgba(211, 231, 238, 0.2);
+  color: rgb(39, 107, 178);
+  height: calc(100% - 140px);
+  position: absolute;
+  left: 0px;
+  top: 60px;
+  cursor: pointer;
+  text-align: right;
+}
+.arrow span {
+  position: absolute;
+  top: 50%;
+  right: 50%;
+  margin-top: -7px;
+  margin-right: -7px;
+}
+.benefit {
+  width: calc(100% - 330px);
+  height: 100%;
+}
+.benefit.active {
+  width: 100%;
+}
+.benefit_title {
+  width: 100%;
+  background: rgba(211, 231, 238, 0.2);
+  color: rgb(39, 107, 178);
+  border-bottom: 1px solid rgba(9, 157, 207, 0.6);
+  height: 42px;
+  line-height: 42px;
+  padding: 0 2%;
+}
+.benefit_title .benefit_btns button.btn {
+  padding: 5px 30px;
+}
+.benefit table.table tr th,
+.benefit table.table tr td {
+  text-align: center;
+  font-size: 14px;
+  border-top: none;
+}
+.benefit table.table tr th {
+  color: rgb(39, 107, 178);
+  border-top: none;
+  border-bottom: 1px solid rgba(9, 157, 207, 0.6);
+}
+/* 可以设置不同的进入和离开动画 */
+/* 设置持续时间和动画函数 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.5s;
+}
+.fade-enter,
+.fade-leave-active {
+  opacity: 0;
+}
+ol.list-group li {
+  list-style-type: decimal;
+  list-style-position: inside;
+}
+.classTopicBg {
+  background: #ccc;
+}
+table.table tr td {
+    white-space: nowrap;/*控制单行显示*/
+    overflow: hidden;/*超出隐藏*/
+    text-overflow: ellipsis;/*隐藏的字符用省略号表示*/
+    cursor: pointer;
+}
+</style>
+<script>
+export default {
+  data() {
+    return {
+      isShow: true,
+      isCheckedAll: false,
+      navList: [
+        { navName: "效益评估", navPath: "analysis" },
+        { navName: "历史数据对比", navPath: "historyData" }
+      ],
+      initData: [],
+      initTableVal: [],
+      initTh: [],
+      ralculation: [],
+      checkIds: [],
+      equation: null,
+      satisfyEquation:null,
+      zongmanyidu: null
+    };
+  },
+  mounted() {
+    this.initQuestion();
+    this.initTable();
+    this.navList[0].navPath =
+      "analysis?questionId=" +
+      this.$route.query.questionId +
+      "&questionName=" +
+      this.$route.query.questionName;
+    this.navList[1].navPath =
+      "historyData?questionId=" +
+      this.$route.query.questionId +
+      "&questionName=" +
+      this.$route.query.questionName;
+      this.submitFlag()
+  },
+  computed:{
+      getUserRole(){
+          return this.$store.state.userRole
+      }
+  },
+  methods: {
+    initQuestion() {
+      let param = new URLSearchParams();
+      param.append("questionId", this.$route.query.questionId);
+      this.axios({
+        method: "post",
+        url: "benefitEva.do?findQues",
+        data: param
+      }).then(res => {
+        if (res.data.e == 0) {
+          this.initData = res.data.o;
+        }
+      });
+    },
+    initTable() {
+      let param = new URLSearchParams();
+      param.append("quesId", this.$route.query.questionId);
+      param.append("quesName", this.$route.query.questionName);
+      this.axios({
+        method: "post",
+        url: "benefitEva.do?findPSQAnswer",
+        data: param
+      }).then(res => {
+        this.initTableVal = res.data.o.result.data;
+        this.initTh = res.data.o.result.data[0].answer;
+        this.equation = JSON.stringify(res.data.o.equation);
+        this.satisfyEquation=res.data.o.equation.满意度模型
+        this.zongmanyidu=res.data.o.equation.总满意度模型
+        this.$nextTick(()=>{
+          this.initTdClick();
+        })
+      });
+    },
+    initTdClick() {
+      var equation2 = ''
+      equation2 = this.equation;
+      $(document).off("click").on("click","table.table #tbody tr td.result",function() {
+        if($(this).hasClass("classTopicBg")) {
+          console.log('有class 需要删除')
+          $(this).removeClass("classTopicBg");
+          $(this).addClass("classTopic");
+          acquireData(equation2);
+        }else {
+          console.log('没有class 需要添加')
+          $(this).addClass("classTopicBg");
+          $(this).removeClass("classTopic");
+          acquireData(equation2);
+        }
+      })
+      $(document).on("click", "table.table tbody tr input[type='checkbox']", function() {
+        acquireData(equation2);
+      });
+      acquireData(equation2);
+    },
+    checkedAll() {
+      var equation2 = this.equation;
+      this.isCheckedAll = !this.isCheckedAll;
+      if (this.isCheckedAll) {
+        // 全选时
+        this.checkIds = [];
+        this.initTableVal.forEach(function(fruit) {
+          this.checkIds.push(fruit.answerId);
+        }, this);
+      }else {
+        this.checkIds = [];
+      }
+    },
+    checkedFlag(){
+      var isCheck;
+      if(this.checkIds.length == this.initTableVal.length){
+        this.isCheckedAll = true;
+        isCheck= true;
+      }else {
+        this.isCheckedAll = false;
+        isCheck= false;
+      }
+      return isCheck;
+    },
+    submitFlag(){
+      let param = new URLSearchParams();
+      param.append("questionnaireName", this.$route.query.questionName);
+      this.axios({
+        method: "post",
+        url: "rsesultSatisfaction.do?FindStateCountTwo",
+        data: param
+      }).then(res => {
+        if (res.data.e == 0) {
+          var num  = res.data.o;
+          if(num > 0) {
+            $('.submit_btn').removeClass('btn-success')
+            $('.submit_btn').attr('disabled',true)
+            //this.$dialog.alert("待审核或者审核通过，提交审核不可点击");
+            return false
+          }else {
+            $('.submit_btn').addClass('btn-success')
+            $('.submit_btn').attr('disabled',false)
+            //this.submitReview()
+          }
+        }
+      });
+    },
+    submitReview() {
+      this.ralculation = [];
+      if (this.checkIds == "") {
+        var ths = $("thead tr th.th");
+        var thArr = [];
+        for (var i = 1; i < ths.length; i++) {
+          thArr.push(ths.eq(i).text());
+        }
+        var titleName = thArr.join();
+        var lastTrs = $("#zongji td");
+        var lastArr = [];
+        for (var s = 0; s < lastTrs.length; s++) {
+          lastArr.push(lastTrs.eq(s).text());
+        }
+        var lastTr = lastArr.join();
+        var questionnaireNum = this.$route.query.questionId;
+        var trs = $("#tbody tr");
+        for (var i = 0; i < trs.length; i++) {
+          var topicArr = [];
+          var topicStr = "";
+          var answerContent = trs.eq(i).find(".answerContent").text();
+          for (var k = 0; k < trs.eq(i).find(".tc").length; k++) {
+            if (trs.eq(i).find(".tc").eq(k).hasClass("classTopicBg")){
+              topicArr.push(trs.eq(i).find(".tc").eq(k).text() + "*@*");
+            } else {
+              topicArr.push(trs.eq(i).find(".tc").eq(k).text());
+            }
+            topicStr = topicArr.join("~@~");
+          }
+          // for (var k = 0; k < trs.eq(i).find(".answerContent").length; k++) {
+          //   answerContent.push(trs.eq(i).find(".answerContent").eq(k).text());
+          //   answerContentStr = answerContent.join()
+          // }
+          var respondentName = {
+            titleName: titleName,
+            respondentName: topicStr,
+            answerContent: answerContent,
+            questionnaireNum: questionnaireNum,
+            lastTr: lastTr
+          };
+          this.ralculation.push(respondentName);
+        }
+      } else {
+        var ths = $("thead tr th.th");
+        var thArr = [];
+        for (var i = 1; i < ths.length; i++) {
+          thArr.push(ths.eq(i).text());
+        }
+        var titleName = thArr.join();
+        var lastTrs = $("#zongji td");
+        var lastArr = [];
+        for (var s = 0; s < lastTrs.length; s++) {
+          lastArr.push(lastTrs.eq(s).text());
+        }
+        var lastTr = lastArr.join();
+        var questionnaireNum = this.$route.query.questionId;
+        for (var q = 0; q < this.checkIds.length; q++) {
+          var tds = $("." + this.checkIds[q] + " .tc");
+          var topicArr = [];
+          var topicStr = "";
+          var answerContent = $("." + this.checkIds[q]).find(".answerContent").text()
+          for (var w = 0; w < tds.length; w++) {
+            if (tds.eq(w).hasClass("classTopicBg")) {
+              topicArr.push(tds.eq(w).text() + "*@*");
+            } else {
+              topicArr.push(tds.eq(w).text());
+            }
+            topicStr = topicArr.join("~@~");
+          }
+          // for (var w = 0; w < this.checkIds.length; w++) {
+          //   answerContent.push(this.checkIds.eq(q).find(".answerContent").eq(w).text());
+          //   answerContentStr = answerContent.join()
+          // }
+          var respondentName = {
+            titleName: titleName,
+            respondentName: topicStr,
+            answerContent: answerContent,
+            questionnaireNum: questionnaireNum,
+            lastTr: lastTr
+          };
+          this.ralculation.push(respondentName);
+        }
+      }
+      var ralculation = JSON.stringify(this.ralculation);
+      let param = new URLSearchParams();
+      param.append("questionnaireName", this.$route.query.questionName);
+      param.append("ralculation", ralculation);
+      this.axios({
+        method: "post",
+        url: "ralculationResults.do?saveRalculationResults",
+        data: param
+      }).then(res => {
+        if (res.data.e == 0) {
+          this.$dialog.alert("提交审核成功").then(()=>{
+            this.stateCommit2()
+            this.stateCommit()
+            location.reload()
+          });
+        } else {
+          this.$dialog.alert("提交审核失败");
+        }
+      });
+    },
+    exportFn() {
+      this.ralculation = [];
+      if (this.checkIds == "") {
+        var ths = $("thead tr th.th");
+        var thArr = [];
+        for (var i = 0; i < ths.length; i++) {
+          thArr.push(ths.eq(i).text());
+        }
+        var titleName = thArr.join();
+        var lastTrs = $("#zongji td");
+        var lastArr = [];
+        for (var s = 0; s < lastTrs.length; s++) {
+          lastArr.push(lastTrs.eq(s).text());
+        }
+        var lastTr = lastArr.join();
+        var questionnaireNum = this.$route.query.questionId;
+        var trs = $("#tbody tr");
+        for (var i = 0; i < trs.length; i++) {
+          var topicArr = [];
+          var topicStr = "";
+          var answerContent = trs.eq(i).find(".answerContent").text();
+          for (var k = 0; k < trs.eq(i).find(".tc").length; k++) {
+            if (trs.eq(i).find(".tc").eq(k).hasClass("classTopicBg")){
+              topicArr.push(trs.eq(i).find(".tc").eq(k).text() + "*@*");
+            } else {
+              topicArr.push(trs.eq(i).find(".tc").eq(k).text());
+            }
+            topicStr = topicArr.join("~@~");
+          }
+          // for (var k = 0; k < trs.eq(i).find(".answerContent").length; k++) {
+          //   answerContent = trs.eq(i).find(".answerContent").eq(k).text();
+          // }
+          var respondentName = {
+            titleName: titleName,
+            respondentName: topicStr,
+            answerContent: answerContent,
+            questionnaireNum: questionnaireNum,
+            lastTr: lastTr
+          };
+          this.ralculation.push(respondentName);
+        }
+      } else {
+        var ths = $("thead tr th.th");
+        var thArr = [];
+        for (var i = 0; i < ths.length; i++) {
+          thArr.push(ths.eq(i).text());
+        }
+        var titleName = thArr.join();
+        var lastTrs = $("#zongji td");
+        var lastArr = [];
+        for (var s = 0; s < lastTrs.length; s++) {
+          lastArr.push(lastTrs.eq(s).text());
+        }
+        var lastTr = lastArr.join();
+        var questionnaireNum = this.$route.query.questionId;
+        for (var q = 0; q < this.checkIds.length; q++) {
+          var tds = $("." + this.checkIds[q] + " .tc");
+          var topicArr = [];
+          var topicStr = "";
+          var answerContent = $("." + this.checkIds[q]).find(".answerContent").text();
+          for (var w = 0; w < tds.length; w++) {
+            if (tds.eq(w).hasClass("classTopicBg")) {
+              topicArr.push(tds.eq(w).text() + "*@*");
+            } else {
+              topicArr.push(tds.eq(w).text());
+            }
+            topicStr = topicArr.join("~@~");
+          }
+          // for (var w = 0; w < this.checkIds.length; w++) {
+          //   answerContent = $("." + this.checkIds[w]).find(".answerContent").text();
+          // }
+          var respondentName = {
+            titleName: titleName,
+            respondentName: topicStr,
+            answerContent: answerContent,
+            questionnaireNum: questionnaireNum,
+            lastTr: lastTr
+          };
+          this.ralculation.push(respondentName);
+        }
+      }
+      var ralculation = JSON.stringify(this.ralculation);
+      console.log(ralculation)
+      let param = new URLSearchParams();
+      param.append("questionnaireName", this.$route.query.questionName);
+      param.append("ralculation", ralculation);
+      this.axios({
+        method: "post",
+        url: "ralculationResults.do?publicExport",
+        data: param
+      }).then(res => {
+        if(res.data.e == 0) {
+          window.location.href="ralculationResults.do?download&filePath='"+res.data.o+"'";
+        } else {
+          this.$dialog.alert("导出失败");
+        }
+      });
+    },
+    stateCommit(){
+       this.axios.get('FeedbackIng.do?StatisticalFeedbackState').then(res=>{
+            if(res.data.e == 0){
+                this.$store.commit('updateFeedbackNum',res.data.o)
+            }
+        })
+        this.axios.get('informationaudit.do?FindInformationAuditTotal').then(res=>{
+            if(res.data.e == 0){
+                this.$store.commit('updateMessageNum',res.data.o.totalQuantity)
+            }
+        })
+    },
+    stateCommit2(){
+      var auditType = ''
+      if(this.getUserRole == "" || this.getUserRole == null){
+        auditType = "效益评估结果审核,反馈消息审核,问卷审核"
+      }else {
+        auditType = this.getUserRole
+      }
+      let param = new URLSearchParams();
+      param.append("auditType",auditType);
+      this.axios({
+        method: 'post',
+        url: 'informationaudit.do?FindInformationAuditCount',
+        data: param
+      }).then(res=>{
+         if(res.data.e == 0){
+           this.$store.commit('updateReviewinfoNum',res.data.o.auditNum)
+           this.$store.commit('updateReminderNum',res.data.o.remindNum)
+         }
+      })
+    },
+    subType(index){
+      return index.substring(index.indexOf('&')+1,index.length);
+    },
+    matchClass(index){
+      if(index.indexOf('单选')>-1){
+        return 'topic';
+      }else if(index.indexOf('多选')>-1){
+        return 'multiple';
+      }else if(index.indexOf('double')>-1){
+        return 'decimals';
+      }else if(index.indexOf('num')>-1){
+        return 'integer';
+      }else if(index.indexOf('txt')>-1){
+        return 'text';
+      }
+    },
+    splitNumber(data){
+      var index=data.substring(data.indexOf('&')+1,data.length);
+      var reg=/[0-9]*$/;
+      var num=index.match(reg);
+      return num[0];
+    },
+    back(){
+       this.$router.push({path:'/benefitEvaluation'})
+    }
+  },
+  watch:{
+      equation:function(){
+          this.$nextTick(function(){
+             this.checkedAll();
+          });
+          deep:true;
+      },
+      isCheckedAll:function(){
+          this.$nextTick(function(){
+              acquireData(this.equation);
+          });
+      }
+  }  
+};
+</script>
+

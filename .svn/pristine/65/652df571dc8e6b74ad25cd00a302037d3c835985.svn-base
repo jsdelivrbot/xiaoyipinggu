@@ -1,0 +1,191 @@
+<template>
+  <div>
+    <v-title>
+      <li class="active">用户反馈统计</li>
+    </v-title>
+    <div class="bodys">
+        <div class="search">
+            用户名称：
+            <input type="text" class="form-control" v-model="questionName">
+            用户昵称：
+            <input type="text" class="form-control" v-model="nickName">
+            回答用户名称：
+            <input type="text" class="form-control" v-model="replyName">
+            反馈信息状态：
+            <select  class="form-control" v-model="stateOfFeedbackInformation">
+                <option :value="item.name" v-for="item in stateOfFeedbackInformationArr">{{item.name}}</option>
+            </select>
+            <button class="btn btn-primary" @click="inquire(questionName,nickName,replyName,stateOfFeedbackInformation,'1','10')">查询</button>
+            <button class="btn btn-danger" @click="deleteFn">删除</button>
+        </div>
+        <table id="result_table" class="table table-responsive">
+            <thead>
+            <tr>
+                <th></th>
+                <th>编号</th>
+                <th>用户名称</th>
+                <th>用户昵称</th>
+                <th>用户单位</th>
+                <th>回答用户</th>
+                <th>最后交流日期</th>
+                <th>反馈信息状态</th>
+            </tr>
+            </thead>
+            <col style="width:4%"/>
+            <col style="width:5%"/>
+            <col style="width:13.75%"/>
+            <col style="width:13.75%"/>
+            <col style="width:13.75%"/>
+            <col style="width:13.75%"/>
+            <col style="width:18%"/>
+            <col style="width:18%"/>
+            <tbody>
+              <tr v-for="(item,index) in initData" v-show="!noDataIsShow">
+                  <td><input type="radio" name="feedback" :value="item.feedbackId" v-model="feedbackId"></td>
+                  <td>{{index + 1}}</td>
+                  <td :title="item.realName">{{item.realName}}</td>
+                  <td :title="item.nickName">{{item.nickName}}</td>
+                  <td :title="item.unitName">{{item.unitName}}</td>
+                  <td :title="item.responderName">{{item.responderName}}</td>
+                  <td :title="item.lastDate">{{item.lastDate}}</td>
+                  <td class="color1" v-if="item.nformationState == '待回复' || item.nformationState == '审核未通过' || item.nformationState == '未提交审核'">
+                      <a :id="item.feedbackId" :href="'#/swap?feedbackId='+item.feedbackId+'&nformationState='+item.nformationState">{{item.nformationState}}</a>
+                  </td>
+                  <td class="color2" v-else-if="item.nformationState == '待审核'">
+                      <a :id="item.feedbackId" :href="'#/swap?feedbackId='+item.feedbackId+'&nformationState='+item.nformationState">{{item.nformationState}}</a>
+                  </td>
+                  <td class="color3" v-else-if="item.nformationState == '审核通过'">
+                      <a :id="item.feedbackId" :href="'#/swap?feedbackId='+item.feedbackId+'&nformationState='+item.nformationState">{{item.nformationState}}</a>
+                  </td>
+                  <td class="color4" v-else>
+                      <a :id="item.feedbackId" :href="'#/swap?feedbackId='+item.feedbackId+'&nformationState='+item.nformationState">{{item.nformationState}}</a>
+                  </td>
+              </tr>
+              <tr v-show="noDataIsShow">
+                  <td colspan="8">暂无数据</td>
+              </tr>
+            </tbody>
+        </table>
+        <v-page :setting="pageSet" @page-change="pageChange"></v-page>
+    </div>
+  </div>
+</template>
+<script>
+import vTitle from '../views/vTitle'
+export default {
+    data() {
+        return {
+            pageSet: {
+                totalRow: 1,//required option
+                language: 'cn',//default: 'cn'
+                pageSizeMenu: false,//default: [10, 20, 50, 100]
+                info: false,
+                align: 'center'
+            },
+            initData: [],
+            questionName: "",
+            nickName: "",
+            replyName: "",
+            stateOfFeedbackInformationArr: [
+                {'name': '全部'},
+                {'name': '待回复'},
+                {'name': '待审核'},
+                {'name': '审核通过'},
+                {'name': '审核未通过'},
+                {'name': '已回复'},
+                {'name': '已查看'}
+            ],
+            stateOfFeedbackInformation: "全部",
+            page: "",
+            rows: "",
+            feedbackId: [],
+            noDataIsShow: false
+        }
+    },
+    components: {vTitle},
+    mounted(){
+        this.reviseNformationState()
+    },
+    methods: {
+        pageChange(pInfo){
+            //分页方法 pInfo{pageNumber: 1, pageSize: 10}
+            this.page = pInfo.pageNumber
+            this.rows = pInfo.pageSize
+            this.inquire(this.questionName,this.nickName,this.replyName,this.stateOfFeedbackInformation,this.page,this.rows)
+        },
+        inquire(questionName,nickName,replyName,stateOfFeedbackInformation,page,rows){
+             let param = new URLSearchParams()
+             param.append('questionName',this.questionName)
+             param.append('nickName',this.nickName)
+             param.append('replyName',this.replyName)
+             param.append('stateOfFeedbackInformation',this.stateOfFeedbackInformation)
+             param.append('page',page)
+             param.append('rows',rows)
+             this.axios({
+                method: 'post',
+                url: 'FeedbackIng.do?selectedUserFeedbackStatistics',
+                async:false,    //或false,是否异步
+                data: param
+             }).then(res=>{
+                 if(res.data.e == 2){
+                    this.initData = res.data.o
+                    this.pageSet.totalRow = res.data.n
+                    this.noDataIsShow = false
+                    this.feedbackState();
+                 }else {
+                    this.noDataIsShow = true
+                 }
+             })
+        },
+        deleteFn(){
+             //删除
+            if($("#result_table tr td input").length == 0){
+                this.$dialog.alert("当前页面暂无数据")
+                return false
+            }else  if($("#result_table tr td input:checked").length == 0){
+				this.$dialog.alert("请选择一条数据")
+                return false
+            }
+            // else if($("#result_table tr td input:checked").length >1){
+			// 	this.$dialog.alert("只能选择一条数据")
+            //     return false
+            // }
+            else {
+                if($('#'+this.feedbackId).text() == '待审核' || $('#'+this.feedbackId).text() == '待回复'){
+                    this.$dialog.alert("待审核或者待回复状态下不可删除")
+                    return false
+                }else {
+                    let param = new URLSearchParams()
+                    param.append('feedbackId', this.feedbackId)
+                    this.axios({
+                        method: 'post',
+                        url: 'FeedbackIng.do?deleteUserFeedback',
+                        data: param
+                    }).then(res=>{
+                        if(res.data.e == 2){
+                            this.$dialog.alert("删除成功")
+                            this.inquire(this.questionName,this.nickName,this.replyName,this.stateOfFeedbackInformation,this.page,this.rows)
+                        }
+                    })
+                }
+            }
+        },
+        reviseNformationState(){
+            if(this.$route.query.feedbackId != null || this.$route.query.feedbackId != ''){
+                $('#'+this.$route.query.feedbackId).text('已查看')
+                this.inquire(this.questionName,this.nickName,this.replyName,this.stateOfFeedbackInformation,this.page,this.rows)
+            }
+        },
+        feedbackState(){
+            this.axios.get('FeedbackIng.do?StatisticalFeedbackState').then(res=>{
+                if(res.data.e == 0){
+                    console.log(res.data.o);
+                    bus.$emit('getNUm',res.data.o)
+                }
+            })
+        }
+    }
+}
+
+</script>
+

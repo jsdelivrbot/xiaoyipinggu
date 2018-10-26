@@ -1,0 +1,846 @@
+<template>
+  <div class="template">
+    <div class="template_header" 
+    :class="{
+      'template_header1':template1,
+      'template_header2':template2,
+      'template_header3':template3,
+      'template_header4':template4,
+      'template_header5':template5
+      }"
+    >问卷调查
+    </div>
+    <div class="template_body" 
+    :class="{
+      'template_body1':template1,
+      'template_body2':template2,
+      'template_body3':template3,
+      'template_body4':template4,
+      'template_body5':template5,
+      }"
+    >
+    <div class="template_title"
+        :class="{
+          'template_title1':template1,
+          'template_title2':template2,
+          'template_title3':template3,
+          'template_title4':template4,
+          'template_title5':template5,
+        }">
+
+    </div>
+       <div class="template_body_content">
+           <div class="list listdiv" :class="{'list1':template1,
+           'list2':template2,'list3':template3,'list4':template4,'list5':template5}" v-for="(item,index) in initData" :id="index">
+             <div class="title" v-show="template1">
+                {{index + 1}}
+             </div>
+             <div class="topic2" v-show="template2">
+                第{{ index + 1 }}题
+             </div>
+             <div class="topic3" v-show="template3">
+               第{{ index + 1 }}题
+             </div>
+             <ul class="template_body_content_ul">
+               <li :class="{'first_topic': template2,'first_topic3': template3,'first_topic4': template4}">{{item.questionName}}&nbsp;&nbsp;&nbsp;<span style="font-size: 12px;" class="questionTypeName">({{item.questionType}}题)</span></li>
+               <li v-for="(item2,index) in item.data" class="lists">
+                 <input type="radio" :name="item.questionName" :value="item2.answerOptions+'.'+item2.answerOptionsValue" v-if="item.answerOptions != null && item.questionType == '单选'">
+                 <input type="checkbox" :value="item2.answerOptions+'.'+item2.answerOptionsValue" v-if="item.answerOptions != null && item.questionType == '多选'">
+                 <label v-if="item.answerOptions != null">{{item2.answerOptions}} . {{item2.answerOptionsValue}}</label>
+                 <input type="text" v-if="item.fillingType == 'txt' && item.questionType == '填空'" onkeyup="value=value.replace(/[\d]/g,'') "onbeforepaste="clipboardData.setData('text',clipboardData.getData('text').replace(/[\d]/g,''))"/>
+                 <br v-if="item.fillingType == 'txt' && item.questionType == '填空'"/>
+                 <span v-if="item.fillingType == 'txt' && item.questionType == '填空'" style="color: grey;">(只能填写文字)</span>
+                 <input type="text" v-if="item.fillingType == 'num' && item.questionType == '填空'" onkeyup="this.value=this.value.replace(/\D/g,'')" onafterpaste="this.value=this.value.replace(/\D/g,'')"/>
+                 <br v-if="item.fillingType == 'num' && item.questionType == '填空'"/>
+                 <span v-if="item.fillingType == 'num' && item.questionType == '填空'" style="color: grey;">(只能填写整数)</span>
+                 <input type="text" v-if="item.fillingType == 'double' && item.questionType == '填空'" @keyup="clearNoNum($event)"/>
+                 <br v-if="item.fillingType == 'double' && item.questionType == '填空'"/>
+                 <span v-if="item.fillingType == 'double' && item.questionType == '填空'" style="color: grey;">(可以填写小数，保留小数点后两位)</span>
+               </li>
+             </ul>
+             <div class="icon" v-show="template1">
+
+             </div>
+           </div> 
+           <div class="list" v-if="questionnaireNameType == '行业'" :class="{'list1':template1,
+           'list2':template2,'list3':template3,'list4':template4,'list5':template5}">
+             <div class="title" v-show="template1">
+                反馈
+             </div>
+             <div class="topic2" v-show="template2">
+                反馈
+             </div>
+             <div class="topic3" v-show="template3">
+                反馈
+             </div>
+             <ul class="template_body_content_ul">
+              <li>
+                <textarea name="" id="feedbackText" rows="5" :class="{'textarea_bg':template2,'textarea_bg3':template3,'textarea_bg4':template4}"></textarea>
+              </li>
+             </ul>
+           </div>
+           <div class="submit">
+              <button class="btn" @click="submitMethod" :class="{
+              'btn_bg1':template1,
+              'btn_bg2':template2,
+              'btn_bg3':template3,
+              'btn_bg4':template4,
+              'btn_bg5':template5}"
+              >提交</button>  
+           </div> 
+       </div>
+    </div>
+    <div class="success_box" v-show="success_box">
+      <div class="success">
+        <div class="success_info">
+          <img src="../../static/submit_success.png" alt="">
+        </div>
+        <div class="success_button">
+          <button class="btn btn-success" @click="success_ok">确定</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+<script>
+export default {
+  data(){
+    return {
+      template1: true,
+      template2: false,
+      template3: false,
+      template4: false,
+      template5: false,
+      success_box: false,
+      initData: [],
+      questionnaireName: "",
+      typeId: "",
+      startTime: "",
+      stopTime: "",
+      questionnaireNameType: ''
+    }
+  },
+  mounted(){
+    this.initWx()
+    this.initQuestionTemplate()
+    this.initTemplate()
+  },
+  methods: {
+    // propertyChange(){
+    //    //propertychange监听input里面的字符变化,属性改变事件
+    //     $('.tiankong').bind('input propertychange', function() {
+    //         var $this = $(this);
+    //         var text_length = $this.val().length;//获取当前文本框的长度
+    //         var current_width = parseInt(text_length) *10;//该16是改变前的宽度除以当前字符串的长度,算出每个字符的长度
+    //         if(text_length == 0){
+    //           $this.css("width",50+"px");
+    //         }else {
+    //           $this.css("width",current_width+"px");
+    //         }
+    //         if($this.width() >= 275){
+    //           $this.css("width",275+"px");
+    //         }
+    //     });
+    // },
+    initQuestionTemplate(){
+        if(this.$route.query.questionnaireStyleId  == '1'){
+            this.template1 = true
+            this.template2 = false
+            this.template3 = false
+            this.template4 = false
+            this.template5 = false
+        }
+        if(this.$route.query.questionnaireStyleId  == '2'){
+            this.template1 = false
+            this.template2 = true
+            this.template3 = false
+            this.template4 = false
+            this.template5 = false
+        }
+        if(this.$route.query.questionnaireStyleId  == '3'){
+            this.template1 = false
+            this.template2 = false
+            this.template3 = true
+            this.template4 = false
+            this.template5 = false
+        }
+        if(this.$route.query.questionnaireStyleId  == '4'){
+            this.template1 = false
+            this.template2 = false
+            this.template3 = false
+            this.template4 = true
+            this.template5 = false
+        }
+        if(this.$route.query.questionnaireStyleId  == '5'){
+            this.template1 = false
+            this.template2 = false
+            this.template3 = false
+            this.template4 = false
+            this.template5 = true
+        }
+    },
+    initTemplate(){
+      let param = new URLSearchParams()
+      param.append('questionnaireId',this.$route.query.questionnaireId)
+      param.append('openId',this.$route.query.openId)
+      this.axios({
+          method: 'post',
+          url: 'QuestionnaireClick.do?obtainTitle',
+          data: param,
+      }).then(res=>{
+          if(res.data.e == 2){
+             for(var i = 0;i < res.data.o.length;i++){
+              if(res.data.o[i].questionType != "填空"){
+                  var answerOptions = res.data.o[i].answerOptions
+                  if(answerOptions != null){
+                    var answerOptionsArr = answerOptions.split(',')
+                    var answerOptionsValue = res.data.o[i].answerOptionsValue
+                    var answerOptionsValueArr = answerOptionsValue.split(',')
+                  }
+                  // var data = [
+                  //     {"answerOptions":answerOptionsArr[0],"answerOptionsValue":answerOptionsValueArr[0]},
+                  //     {"answerOptions":answerOptionsArr[1],"answerOptionsValue":answerOptionsValueArr[1]},
+                  //     {"answerOptions":answerOptionsArr[2],"answerOptionsValue":answerOptionsValueArr[2]},
+                  //     {"answerOptions":answerOptionsArr[3],"answerOptionsValue":answerOptionsValueArr[3]},
+                  //     {"answerOptions":answerOptionsArr[4],"answerOptionsValue":answerOptionsValueArr[4]}
+                  //   ]
+                  var data = []
+                  for(var j = 0;j<answerOptionsArr.length;j++){
+                      data.push({"answerOptions":answerOptionsArr[j],"answerOptionsValue":answerOptionsValueArr[j]})
+                  }
+                  res.data.o[i].data= data
+                }else {
+                  var data = [
+                    {
+                      "answerOptions":null,"answerOptionsValue":null,"fillingType":res.data.o[i].fillingType
+                    }
+                  ]
+                  res.data.o[i].data= data
+                }
+                this.initData = res.data.o
+                this.typeId = res.data.two.typeId
+                this.startTime = res.data.two.startTime
+                this.stopTime = res.data.two.stopTime
+                this.questionnaireName = res.data.two.questionnaireName
+                this.questionnaireNameType = res.data.two.questionnaireName.substring(0,2)
+              }
+          }
+          if(res.data.e == 3){
+             this.$dialog.alert("服务器正忙，请稍后再试").then(function(){
+              wx.closeWindow();
+            })
+          }
+          if(res.data.e == 4){
+             this.$dialog.alert("问卷已失效").then(function(){
+              wx.closeWindow();
+            })
+          }
+          if(res.data.e == 5){
+            this.$dialog.alert("无法重复答复问卷").then(function(){
+              wx.closeWindow();
+            })
+          }
+      })
+    },
+    initWx(){
+      var url=location.href.split('#')[0];
+      $.ajax({
+              type: "POST",
+              url: "JsLogin.do?JsValidate",
+              data: {
+              "url": url
+              },
+              dataType: "json",
+              async:false,
+              success: function (data) {
+                console.log(data);
+              wx.config({
+                debug: false, // 开启调试模式,调用的所有api的返回值会在客户端alert出来，若要查看传入的参数，可以在pc端打开，参数信息会通过log打出，仅在pc端时才会打印。
+                appId: data.appId, // 必填，公众号的唯一标识
+                timestamp: data.timestamp, // 必填，生成签名的时间戳
+                nonceStr: data.nonceStr, // 必填，生成签名的随机串
+                signature: data.signature,// 必填，签名，见附录1
+                jsApiList: [
+                      'checkJsApi',
+                      'onMenuShareTimeline',
+                      'onMenuShareAppMessage',
+                      'onMenuShareQQ',
+                      'onMenuShareWeibo',
+                      'onMenuShareQZone',
+                      'hideMenuItems',
+                      'showMenuItems',
+                      'hideAllNonBaseMenuItem',
+                      'showAllNonBaseMenuItem',
+                      'translateVoice',
+                      'startRecord',
+                      'stopRecord',
+                      'onVoiceRecordEnd',
+                      'playVoice',
+                      'onVoicePlayEnd',
+                      'pauseVoice',
+                      'stopVoice',
+                      'uploadVoice',
+                      'downloadVoice',
+                      'chooseImage',
+                      'previewImage',
+                      'uploadImage',
+                      'downloadImage',
+                      'getNetworkType',
+                      'openLocation',
+                      'getLocation',
+                      'hideOptionMenu',
+                      'showOptionMenu',
+                      'closeWindow',
+                      'scanQRCode',
+                      'chooseWXPay',
+                      'openProductSpecificView',
+                      'addCard',
+                      'chooseCard',
+                      'openCard'
+                ] // 必填，需要使用的JS接口列表，所有JS接口列表见附录2
+            });
+          }
+      });
+      wx.ready(function(){
+        // wx.checkJsApi1 判断当前版本是否支持指定 JS 接口，支持批量判断
+        wx.checkJsApi({
+            jsApiList: [
+              'getNetworkType',
+              'previewImage'
+            ],
+            success: function (res) {
+              console.log(res);
+              //alert(JSON.stringify(res)+"支持JS SDK接口");
+            }
+          });
+
+        //隐藏浏览器中右上角的三个点内的菜单
+          wx.hideMenuItems({
+            menuList: [
+              'menuItem:readMode', // 阅读模式
+              'menuItem:copyUrl', // 复制链接
+              'menuItem:share:timeline',
+              'menuItem:share:appMessage',
+              'menuItem:share:qq',
+              'menuItem:share:QZone',
+              'menuItem:openWithQQBrowser',
+              'menuItem:share:email',
+              'menuItem:favorite',
+              'menuItem:openWithSafari'
+            ],
+            success: function (res) {
+              //alert('已隐藏“阅读模式”，“复制链接”等按钮');
+              csonoe.log('已隐藏“阅读模式”，“复制链接”等按钮');
+            },
+            fail: function (res) {
+              //alert(JSON.stringify(res));
+              csonoe.log(JSON.stringify(res));
+            }
+          });
+      });
+      wx.error(function(res){
+        //alert('微信方法执行error');
+          // config信息验证失败会执行error函数，如签名过期导致验证失败，具体错误信息可以打开config的debug模式查看，也可以在返回的res参数中查看，对于SPA可以在这里更新签名。
+          //发生错误就是ticket失效了，重新调用ajax访问后台获取信的凭借接口
+          var url=location.href.split('#')[0];
+          $.ajax({
+            type: "Get",
+            url: "JsLogin.do?jsTicket?",
+            async:false,
+            success: function (data) {
+              $.ajax({
+                type: "POST",
+                url: "http://szty.z798.cn/Create/qixi/servlet.do?",
+                data: {
+                  "url": url
+                },
+                dataType: "json",
+                async:false,
+                success: function (data) {
+                      console.log(data);
+                      wx.config({
+                        debug: false, // 开启调试模式,调用的所有api的返回值会在客户端alert出来，若要查看传入的参数，可以在pc端打开，参数信息会通过log打出，仅在pc端时才会打印。
+                        appId: data.appId, // 必填，公众号的唯一标识
+                        timestamp: data.timestamp, // 必填，生成签名的时间戳
+                        nonceStr: data.nonceStr, // 必填，生成签名的随机串
+                        signature: data.signature,// 必填，签名，见附录1
+                        jsApiList: [
+                              'checkJsApi',
+                              'onMenuShareTimeline',
+                              'onMenuShareAppMessage',
+                              'onMenuShareQQ',
+                              'onMenuShareWeibo',
+                              'onMenuShareQZone',
+                              'hideMenuItems',
+                              'showMenuItems',
+                              'hideAllNonBaseMenuItem',
+                              'showAllNonBaseMenuItem',
+                              'translateVoice',
+                              'startRecord',
+                              'stopRecord',
+                              'onVoiceRecordEnd',
+                              'playVoice',
+                              'onVoicePlayEnd',
+                              'pauseVoice',
+                              'stopVoice',
+                              'uploadVoice',
+                              'downloadVoice',
+                              'chooseImage',
+                              'previewImage',
+                              'uploadImage',
+                              'downloadImage',
+                              'getNetworkType',
+                              'openLocation',
+                              'getLocation',
+                              'hideOptionMenu',
+                              'showOptionMenu',
+                              'closeWindow',
+                              'scanQRCode',
+                              'chooseWXPay',
+                              'openProductSpecificView',
+                              'addCard',
+                              'chooseCard',
+                              'openCard'
+                        ] // 必填，需要使用的JS接口列表，所有JS接口列表见附录2
+                    });
+                  }
+              });
+            }
+          });
+      });
+    },
+    clearNoNum(event){
+        event.currentTarget.value = event.currentTarget.value.replace(/[^\d.]/g,"");  //清除“数字”和“.”以外的字符  
+        event.currentTarget.value = event.currentTarget.value.replace(/\.{2,}/g,"."); //只保留第一个. 清除多余的  
+        event.currentTarget.value = event.currentTarget.value.replace(".","$#$").replace(/\./g,"").replace("$#$","."); 
+        event.currentTarget.value = event.currentTarget.value.replace(/^(\-)*(\d+)\.(\d\d).*$/,'$1$2.$3');//只能输入两个小数  
+        if(event.currentTarget.value.indexOf(".")< 0 && event.currentTarget.value !=""){//以上已经过滤，此处控制的是如果没有小数点，首位不能为类似于 01、02的金额 
+            event.currentTarget.value= parseFloat(event.currentTarget.value); 
+        } 
+    },
+    // verify(event){
+    //   if(event.currentTarget.value.indexOf(".")< 0 && event.currentTarget.value !=""){//以上已经过滤，此处控制的是如果没有小数点，首位不能为类似于 01、02的金额 
+    //         this.$dialog.alert("只能填写小数并且保留小数点后两位")
+    //     } 
+    // },
+    submitMethod(){
+      var answeringArr = []
+      for(var i = 0; i < $('.template_body_content .listdiv').length;i++){
+          if($('#'+i).find('.questionTypeName').text() == "(单选题)"){
+              var radioVal = $("#"+i+" .lists input:radio:checked").val()
+              console.log($("#"+i+" .lists input:radio:checked"))
+              if(radioVal == "" || radioVal == null){
+                answeringArr.push("")
+              }else {
+                answeringArr.push(radioVal)
+              }
+              
+          }else if($('#'+i).find('.questionTypeName').text() == "(多选题)"){
+              var arr = [];
+              $("#"+i+" .lists input:checkbox:checked").each(function(item){
+                  arr[item] = $(this).val();
+              })
+              if(arr == "" || arr == null){
+                  answeringArr.push("")
+              }else {
+                  var arrStr = arr.join(';')
+                  answeringArr.push(arrStr)
+              }
+          }else {
+              var tiankong = $("#"+i+" .lists input[type='text']").val()
+              if(tiankong == "" || tiankong == null){
+                answeringArr.push("")
+              }else {
+                answeringArr.push(tiankong)
+              }
+          }
+      }
+      let answering = answeringArr.join(',')
+      let param = new URLSearchParams()
+      param.append('questionnaireId',this.$route.query.questionnaireId)
+      param.append('openID',this.$route.query.openId)
+      param.append('questionnaireName',this.questionnaireName)
+      param.append('typeId',this.typeId)
+      param.append('startTime',this.startTime)
+      param.append('stopTime',this.stopTime)
+      param.append('answering',answering)
+      param.append('feedbackText',$('#feedbackText').val())
+      this.axios({
+          method: 'post',
+          url: 'QuestionnaireClick.do?questionnaireSubmission',
+          data: param,
+      }).then(res=>{
+        if(res.data.e == 1){
+          this.success_box = true
+          // this.$dialog.alert("提交成功").then(()=>{
+          //    //wx.closeWindow();
+          //   //  alert('喜马拉雅的孩子谜一样的流浪记')
+          //   //  alert(this.questionnaireNameType)
+          //   //  alert(this.$route.query.openId)
+          //    var openId = this.$route.query.openId;
+          //    if(this.questionnaireNameType == '行业'){
+          //   //      $.ajax({
+          //   //    url:'QuestionnaireClick.do?SubmissionOfSuccessfulIndustry',
+          //   //    type:'post',
+          //   //    dataType:'json',
+          //   //    data:{'openId':openId},
+          //   //    success:function(){
+
+          //   //    }
+          //   //  })
+          //    this.$router.push({path:'/weRankList',query:{openId:openId}})
+          //    }else{
+          //      wx.closeWindow();
+          //    }
+          // })
+        }
+      })
+    },
+    jumpRankList(){
+      alert(this.questionnaireNameType)
+      if(this.questionnaireNameType == '行业'){
+          alert('进去了'+this.$route.query.openId)
+          let param = new URLSearchParams()
+          param.append('openId',this.$route.query.openId)
+          this.axios({
+              method: 'post',
+              url: 'QuestionnaireClick.do?SubmissionOfSuccessfulIndustry',
+              data: param,
+          }).then(res=>{
+            console.log('成功')
+            alert('ok')
+          })
+      }else {
+          wx.closeWindow();
+      }
+    },
+    success_ok(){
+      var openId = this.$route.query.openId;
+      this.success_box = false
+      if(this.questionnaireNameType == '行业'){
+        this.$router.push({path:'/weRankList',query:{openId:openId}})
+      }else{
+        wx.closeWindow();
+      }
+    }
+  }
+}
+</script>
+<style scoped>
+.template {
+  width: 100%;
+  height: 100%;
+}
+.template_header {
+  width: 100%;
+  height: 50px;
+  line-height: 50px;
+  padding: 0 2%;
+  text-align: center;
+  font-size: 16px
+}
+.template_header1 {
+  color: #fff;
+  background: rgb(239,156,88);
+}
+.template_header2 {
+  color: #fff;
+  background: rgb(18,156,193);
+}
+.template_header3 {
+  color: #000;
+  background: #fff;
+}
+.template_header4 {
+  color: #000;
+  background: #fff;
+}
+.template_header5 {
+  color: #000;
+  background: #fff;
+}
+#templateId {
+  float: right;
+  margin-top: 12px;
+}
+#templateId.active1 {
+  border: 1px solid #fff;
+  color: #fff;
+  background: rgb(239,156,88);
+}
+#templateId.active2 {
+  border: 1px solid #fff;
+  color: #fff;
+  background: rgb(18,156,193);
+}
+#templateId.active3 {
+  border: 1px solid #000;
+  color: #000;
+  background: #fff;
+}
+#templateId.active4 {
+  border: 1px solid #000;
+  color: #000;
+  background: #fff;
+}
+#templateId.active5 {
+  border: 1px solid #000;
+  color: #000;
+  background: #fff;
+}
+.template_title {
+    width: 320px;
+    margin: -10px auto 20px;
+}
+.template_title1 {
+  background: url(../../static/questionnaire1.png) no-repeat;
+  background-size: 100% 100%;
+  height: 150px;
+}
+.template_title2 {
+  background: url(../../static/questionnaire2.png) no-repeat;
+  background-size: 100% 100%;
+  height: 125px;
+}
+.template_title3 {
+  background: url(../../static/questionnaire3.png) no-repeat;
+  background-size: 100% 100%;
+  height: 125px;
+}
+.template_title4 {
+  background: url(../../static/questionnaire4.png) no-repeat;
+  background-size: 100% 100%;
+  margin: -20px auto 20px;
+  height: 150px;
+}
+.template_title5 {
+  background: url(../../static/questionnaire5.png) no-repeat;
+  background-size: 100% 100%;
+  margin: -20px auto 20px;
+  height: 125px;
+}
+
+.template_body {
+  width: 100%;
+  height: calc(100% - 50px);
+  padding: 20px 0;
+  overflow: auto;
+}
+.template_body1 {
+  background: rgb(90,218,170);
+}
+.template_body2 {
+  background: #fff;
+}
+.template_body3 {
+  background: rgb(255,194,28);
+}
+.template_body4 {
+  background: rgb(47,136,202);
+}
+.template_body5 {
+  background: url(../../static/body_bg5.png) repeat-y;
+  background-size: 100% 100%;
+}
+.template_body_content {
+  width: 320px;
+  margin: 0 auto;
+}
+.list {
+  width: 100%;
+  height: auto;
+  margin-top: 20px;
+  padding: 20px 0;
+  padding-top: 40px;
+  position: relative;
+}
+.list1 {
+  background: url(../../static/bg_01.png) no-repeat;
+  background-size: 100% 100%;
+}
+.list2 {
+  background: url(../../static/bg_02.png) no-repeat;
+  background-size: 100% 100%;
+}
+.list3 {
+  background: url(../../static/bg_03.png) no-repeat;
+  background-size: 100% 100%;
+}
+.list4 {
+  background: url(../../static/bg_04.png) no-repeat;
+  background-size: 100% 100%;
+  padding-top: 15px;
+}
+.list5 {
+  background: url(../../static/bg_05.png) no-repeat;
+  background-size: 100% 100%;
+  padding-top: 25px;
+}
+.list:nth-child(1){
+  margin: 0;
+}
+.title {
+  width: 45px;
+  height: 45px;
+  background: url(../../static/title.png) no-repeat;
+  background-size: 100% 100%;
+  color: #fff;
+  line-height: 45px;
+  text-align: center;
+  position: absolute;
+  top: -4px;
+  left: 10px;
+}
+.topic2 {
+  width: 200px;
+  height: 45px;
+  background: url(../../static/topic.png) no-repeat;
+  background-size: 100% 100%;
+  color: rgb(18,156,193);
+  line-height: 45px;
+  text-align: center;
+  position: absolute;
+  top: -15px;
+  left: 60px;
+}
+.topic3 {
+  width: 200px;
+  height: 45px;
+  background: url(../../static/topic3.png) no-repeat;
+  background-size: 100% 100%;
+  color: #fff;
+  line-height: 45px;
+  text-align: center;
+  position: absolute;
+  top: -15px;
+  left: 60px;
+}
+.icon {
+  width: 45px;
+  height: 45px;
+  background: url(../../static/icon.png) no-repeat;
+  background-size: 100% 100%;
+  position: absolute;
+  bottom: 4px;
+  right: 10px;
+}
+.template_body_content_ul{
+  display: block;
+  width: 82%;
+  margin: 0 auto;
+}
+.template_body_content_ul li {
+  padding: 8px 5px;
+  color: #000;
+}
+.template_body_content_ul li label {
+  font-weight: 400;
+  cursor: pointer;
+}
+.template_body_content_ul li.first_topic{
+  background: url(../../static/first_topic.png) no-repeat;
+  background-size: 100% 100%;
+}
+.template_body_content_ul li.first_topic3{
+  background: url(../../static/first_topic3.png) no-repeat;
+  background-size: 100% 100%;
+  color: #fff;
+}
+.template_body_content_ul li.first_topic4{
+  background: url(../../static/first_topic4.png) no-repeat;
+  background-size: 100% 100%;
+  color: #000;
+  padding: 8px 25px;
+}
+.template_body_content_ul li input[type="text"] {
+  width: 240px;
+  height: 30px;
+}
+input,textarea{outline:none}
+input.tiankong {
+    border: none;
+    border-bottom: 1px solid #000;
+    width: 50px;
+}
+textarea {
+  width: 100%;
+  background: rgb(244,244,244);
+  resize:none;
+  border-radius: 10px;
+  border: none;
+  padding: 10px;
+}
+.textarea_bg {
+  background: url(../../static/first_topic.png) no-repeat;
+  background-size: 100% 100%;
+}
+.textarea_bg3 {
+  background: url(../../static/first_topic3.png) no-repeat;
+  background-size: 100% 100%;
+  color: #fff;
+}
+.textarea_bg4 {
+  background: url(../../static/first_topic4.png) no-repeat;
+  background-size: 100% 100%;
+  padding: 10px 10px 10px 30px;
+}
+.submit {
+  margin-top: 20px;
+}
+.submit .btn_bg1 {
+  width: 100%;
+  color: #fff;
+  background: rgb(239,156,88);
+}
+.submit .btn_bg2 {
+  width: 100%;
+  color: #fff;
+  background: rgb(18,156,193);
+}
+.submit .btn_bg3 {
+  width: 100%;
+  color: #fff;
+  background: rgb(247,57,59);
+}
+.submit .btn_bg4 {
+  width: 100%;
+  color: #000;
+  background: url(../../static/btn4.png) no-repeat;
+  background-size: 100% 100%;
+}
+.submit .btn_bg5 {
+  width: 100%;
+  color: #000;
+  background: url(../../static/btn5.png) no-repeat;
+  background-size: 100% 100%;
+}
+.success_box {
+  width:100%;
+  height:100%;
+  position: absolute;
+  top:0;
+  left:0;
+  background: rgba(0,0,0,0.4);
+}
+.success {
+  width: 320px;
+  margin: 0 auto;
+  background: #fff;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin-top: -155px;
+  margin-left: -160px;
+}
+.success_info {
+  text-align: center;
+  padding: 20px 20px 0px 20px;
+}
+.success_info img {
+  width: 220px;
+}
+.success_button {
+  text-align: center;
+  padding: 10px;
+}
+</style>

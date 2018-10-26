@@ -1,0 +1,419 @@
+<template>
+  <div>
+    <div class="history_data_header clearfix">
+        <ul class="nav nav-pills pull-left">
+            <li role="presentation" :class="{active: index==1}" v-for="(item,index) in navList">
+              <router-link :to="item.navPath">{{item.navName}}</router-link>
+            </li>
+        </ul>
+        <div class="pull-right">
+            <label for="checkAll" class="checkAll">
+                <input type="checkbox" v-model='checked' v-on:click='checkedAll' id="checkAll">
+                全选
+            </label>
+            <button class="btn btn-info" @click="exportFn">导出</button>
+            <button class="btn btn-warning" @click="back()">返回</button>
+            <!-- <button class="btn btn-warning">返回</button> -->
+        </div>
+    </div>
+    <div class="history_data_body">
+        <ul class="list-group"v v-show="!noDataShow">
+            <li :id="index" class="list-group-item lis" v-for="(item,index) in initData">
+                <span class="badge" :data-num=index><i class="glyphicon glyphicon-chevron-down"></i></span>
+                <input type="checkbox" :value="index" v-model="checkId" @click.stop="stop"/>
+                <span class="questionNameMap">第{{index+1}}题:{{item[0].questionNameMap}}</span>
+                <div class="list-group-item-content">
+                    <div class="content_table pull-left">
+                        <table class="table table-responsive">
+                            <thead>
+                                <tr>
+                                    <th>问卷名称</th>
+                                    <th>参与人数</th>
+                                    <th>问卷发放人数</th>
+                                    <th>评估值</th>
+                                    <th>整体评估值</th>
+                                    <th>调查时间</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody">
+                                <tr v-for="opt in item">
+                                    <td>{{opt.questionnaireName}}</td>
+                                    <td>{{opt.participationNumber}}</td>
+                                    <td>{{opt.sendQuantity}}</td>
+                                    <td>{{opt.totalSatisfaction}}</td>
+                                    <td>{{opt.singleTopicSatisfaction}}</td>
+                                    <td>{{opt.effectiveTime}}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="content_echarts pull-right" :id='"myEchart"+index'></div>
+                </div>
+            </li>
+        </ul>
+        <div v-show="noDataShow" style="text-align: center;font-size: 24px;color: #1975b6;">
+            {{noData}}
+        </div>
+    </div>
+  </div>
+</template>
+<script>
+export default {
+    data(){
+        return {
+            navList: [
+                {navName: '效益评估',navPath: 'analysis'},
+                {navName: '历史数据对比',navPath: 'historyData'}
+            ],
+            nairId:this.$route.query.questionId,   //问卷ID
+            initData:[],      //初始化界面数据
+            subjectData:[],   //某道题详情
+            exportData:[],
+            imgUrl: [],
+            checkId:[],
+            noDataShow: false,
+            checked: true,
+            noData: ''
+        }
+    },
+    mounted() {
+        this.historyFlag()
+        this.initHistoryData(this.nairId)
+        this.historyDetail();
+        this.navList[0].navPath = 'analysis?questionId='+this.$route.query.questionId+'&questionName='+this.$route.query.questionName
+        this.navList[1].navPath = 'historyData?questionId='+this.$route.query.questionId+'&questionName='+this.$route.query.questionName
+        setTimeout(()=>{
+            for(let i = 0; i< this.initData.length;i++){
+                this.checkId.push(i);
+                var data = this.initData[i];
+                var singleData = [];
+                var totleData = [];
+                var xname = [];
+                console.log(data);
+                for(var j=0;j<data.length;j++){
+                    singleData.push(data[j].singleTopicSatisfaction)
+                    totleData.push(data[j].totalSatisfaction)
+                    xname.push(data[j].questionnaireName)
+                }
+                this.dropEcharts('myEchart'+i,singleData,totleData,xname)     
+            }
+        },500)
+    },
+    methods:{
+        initHistoryData(naireId){
+            let param = new URLSearchParams()
+            param.append('questionnaireNumber',naireId)
+            this.axios({
+                method: 'post',
+                url: 'rsesultSatisfaction.do?FindSatisfaction',      
+                async:false,   
+                data: param,
+            }).then(res=>{
+                if(res.data.e == 0){   
+                    this.initData = res.data.o 
+                    this.noDataShow = false
+                }else if(res.data.e == 1){
+                    this.$dialog.alert("查询失败")
+                }else {
+                    this.noDataShow = true
+                    this.noData = '此问卷中没有单选题，所以暂无历史数据'
+                }
+            })
+        },
+        historyDetail(){
+            $(document).on('click','.list-group-item',function(){
+                $(this).find('.list-group-item-content').slideToggle()
+            })
+        },
+        dropEcharts(dom,single,totle,xname){
+            console.log(dom+"==="+single+"==="+totle+"==="+xname)
+            // 基于准备好的dom，初始化echarts实例
+            var myChart = this.$echarts.init(document.getElementById(dom));
+            myChart.setOption({
+                tooltip: {
+                    trigger: 'axis'
+                },
+                animation: false,
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '3%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    boundaryGap: false,
+                    data: xname
+                },
+                yAxis: {
+                    type: 'value'
+                },
+                grid: {
+                    left: 65,
+                    right: 65
+                },
+                series: [{
+                        name:'单题评估值',
+                        type:'line',
+                        stack: '总量',
+                        data:single
+                    },{
+                        name:'整体评估值',
+                        type:'line',
+                        stack: '总量',
+                        data:totle
+                }]
+            })
+            var img = new Image();
+            img.src = myChart.getDataURL({
+                pixelRatio: 2,
+                backgroundColor: '#fff'
+            });
+            this.imgUrl.push(img.src)   
+            console.log(this.imgUrl)
+        },
+        exportFn(){
+            this.exportData = []
+            if(this.checkId == ""){
+                this.$dialog.alert("请勾选数据后再进行导出")
+                return false
+                // for(var i =0;i<$('.lis').length;i++){
+                //     var questionNameMap = $('.lis').eq(i).find('.questionNameMap').text()
+                //     var data = []
+                //     for(var k =0;k<$('.lis').eq(i).find('#tbody tr').length;k++){
+                //         var obj = new Object()
+                //         for(var y = 0; y < $('.lis').eq(i).find('#tbody tr').eq(k).find('td').length;y++){
+                //             obj.questionnaireName = $('.lis').eq(i).find('#tbody tr').eq(k).find('td').eq(0).text()
+                //             obj.participationNumber = $('.lis').eq(i).find('#tbody tr').eq(k).find('td').eq(1).text()
+                //             obj.sendQuantity = $('.lis').eq(i).find('#tbody tr').eq(k).find('td').eq(2).text()
+                //             obj.singleTopicSatisfaction = $('.lis').eq(i).find('#tbody tr').eq(k).find('td').eq(3).text()
+                //             obj.totalSatisfaction = $('.lis').eq(i).find('#tbody tr').eq(k).find('td').eq(4).text()
+                //             obj.effectiveTime = $('.lis').eq(i).find('#tbody tr').eq(k).find('td').eq(5).text()
+                //         }
+                //         data.push(obj)
+                //     }
+                //     var data2 = this.initData[i]
+                //     var singleData = [];
+                //     var totleData = [];
+                //     var xname = [];
+                //     for(var s=0;s<data2.length;s++){
+                //         singleData.push(data2[s].singleTopicSatisfaction)
+                //         totleData.push(data2[s].totalSatisfaction)
+                //         xname.push(data2[s].questionnaireName)
+                //     }
+                //     this.dropEcharts('myEchart'+i,singleData,totleData,xname)
+                //     var imgUrl = ""
+                //     this.imgUrl.map((tiem)=>{
+                //         imgUrl = tiem
+                //     })
+                //     var o = {
+                //         'questionNameMap':questionNameMap,
+                //         'data':data,
+                //         'imgUrl':imgUrl
+                //     }
+                //     this.exportData.push(o)
+                // }
+            }else {
+                var checkId = this.checkId
+                for(var i = 0; i< checkId.length;i++){
+                    var questionNameMap = $('#'+i).find('.questionNameMap').text()
+                    var data = []
+                    for(var k =0;k<$('#'+i).find('#tbody tr').length;k++){
+                        var obj = new Object()
+                        for(var y = 0; y < $('#'+i).find('#tbody tr').eq(k).find('td').length;y++){
+                            obj.questionnaireName = $('#'+i).find('#tbody tr').eq(k).find('td').eq(0).text()
+                            obj.participationNumber = $('#'+i).find('#tbody tr').eq(k).find('td').eq(1).text()
+                            obj.sendQuantity =$('#'+i).find('#tbody tr').eq(k).find('td').eq(2).text()
+                            obj.singleTopicSatisfaction = $('#'+i).find('#tbody tr').eq(k).find('td').eq(3).text()
+                            obj.totalSatisfaction = $('#'+i).find('#tbody tr').eq(k).find('td').eq(4).text()
+                            obj.effectiveTime = $('#'+i).find('#tbody tr').eq(k).find('td').eq(5).text()
+                        }
+                        data.push(obj)
+                    }
+                    var data2 = this.initData[i]
+                    var singleData = [];
+                    var totleData = [];
+                    var xname = [];
+                    for(var s=0;s<data2.length;s++){
+                        singleData.push(data2[s].singleTopicSatisfaction)
+                        totleData.push(data2[s].totalSatisfaction)
+                        xname.push(data2[s].questionnaireName)
+                    }
+                    this.dropEcharts('myEchart'+i,singleData,totleData,xname)
+                    var imgUrl = ""
+                    this.imgUrl.map((tiem)=>{
+                        imgUrl = tiem
+                    })
+                    var o = {
+                        'questionNameMap':questionNameMap,
+                        'data':data,
+                        'imgUrl':imgUrl
+                    }
+                    this.exportData.push(o)
+                }
+            }
+            this.imgUrl = []
+            var resultArray = JSON.stringify(this.exportData)
+            let param = new URLSearchParams()
+            param.append('question',this.$route.query.questionName)
+            param.append('resultArray',resultArray)
+            this.axios({
+                method: 'post',
+                url: 'rsesultSatisfaction.do?publicExport',
+                data: param,
+            }).then(res=>{
+                if(res.data.e == 0){
+                   //this.$dialog.alert("导出成功")
+                    window.location.href="rsesultSatisfaction.do?download&filePath='"+res.data.o+"'";
+                }else {
+                    this.$dialog.alert("导出失败")
+                }
+            })
+        },
+        historyFlag(){
+            let param = new URLSearchParams();
+            param.append("questionnaireName", this.$route.query.questionName);
+            this.axios({
+            method: "post",
+            url: "rsesultSatisfaction.do?FindStateCount",
+            data: param
+            }).then(res => {
+                if (res.data.e == 0) {
+                    var num  = res.data.o;
+                    if(num > 0) {
+                        this.noDataShow = false
+                    }else {
+                        this.noDataShow = true
+                        this.noData = '未审核或者审核未通过状态，历史比对暂无数据'
+                    }
+                }
+            });
+        },
+        checkedAll: function() {
+            if (this.checked) {//实现反选
+                this.checkId = [];
+                $('.list-group-item-content').slideUp()
+                $('.list-group-item-content').slideUp()
+            }else{//实现全选
+                this.checkId = [];
+                for(var i = 0; i< this.initData.length;i++){
+                    this.checkId.push(i);
+                }
+                $('.list-group-item-content').slideDown()
+                $('.list-group-item-content').slideDown()
+            }
+        },
+        stop(){
+            console.log('阻止事件冒泡')
+        },
+        back(){
+            this.$router.push({path:'/analysis',query:{'questionId':this.$route.query.questionId,'questionName':this.$route.query.questionName}})
+        }
+    },
+    watch: {//深度 watcher
+    'checkId': {
+        handler: function (val, oldVal) { 
+            if (this.initData.length === this.checkId.length) {
+                this.checked=true;
+            }else{
+                this.checked=false;
+            }
+        },
+         deep: true
+        }
+    }
+}
+</script>
+<style scoped>
+.history_data_header {
+    padding: 4px 3%;
+    background: rgb(242,242,242);
+}
+.history_data_header button.btn {
+    padding: 5px 30px;
+    margin-top: 4px;
+}
+.history_data_body {
+    width: 96%;
+    height: calc(100% - 48px);
+    margin: 0 auto;
+}
+.history_data_body ul li {
+    color: rgb(39,107,178);
+}
+.history_data_body ul li:nth-child(1){
+    border-top: 0;
+}
+.history_data_body ul li span.val {
+    margin-left: 20px;
+}
+/* .list-group-item{
+    background:#fff;
+} */
+/* .list-group-item .val,.list-group-item .list-group-item-content{
+    display:none;
+} */
+.list-group-item.show .val{
+    display:inline-block;
+}
+.list-group-item.show .list-group-item-content{
+    display:block;
+}
+.history_data_body ul li span.badge {
+    background-color: #f1f1f5;
+    color: rgb(39,107,178);
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    line-height: 26px;
+    cursor: pointer;
+}
+.history_data_body ul li span.badge:hover {
+    background-color: rgb(39,107,178);
+    color:#fff;
+}
+.history_data_body ul li span.badge.active {
+    background-color: rgb(39,107,178);
+    color:#fff;
+}
+.history_data_body ul li span.badge i {
+    padding: 0;
+}
+.list-group-item-content {
+    width: 100%;
+    height: 300px;
+    background: rgb(248,252,253);
+    padding: 1%;
+}
+.content_table {
+    width: calc(100% - 400px);
+    height: 100%;
+    overflow: auto;
+}
+.content_table table.table tr th,
+.content_table table.table tr td {
+    text-align: center;
+    font-size: 14px;
+    border-top: none;;
+}
+.content_table table.table tr th {
+    color: rgb(39,107,178);
+    border-top: none;
+    border-bottom: 1px solid rgba(9, 157, 207, 0.6);
+}
+.content_echarts {
+    width: 400px;
+    height: 270px;
+}
+.checkAll {
+    padding: 5px 6px;
+    vertical-align: middle;
+    margin: 0;
+    color: #fff;
+    background-color: #5bc0de;
+    border-color: #46b8da;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 3px;
+}
+</style>

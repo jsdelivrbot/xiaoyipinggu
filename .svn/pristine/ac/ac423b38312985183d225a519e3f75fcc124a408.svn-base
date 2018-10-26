@@ -1,0 +1,97 @@
+// The Vue build version to load with the `import` command
+// (runtime-only or standalone) has been set in webpack.base.conf with an alias.
+import Vue from 'vue'
+import App from './App'
+import Vuex from 'vuex'
+import router from './router'
+import vPage from 'v-page'
+import axios from 'axios'
+import $ from 'jquery'
+import 'babel-polyfill'
+import 'url-search-params-polyfill'
+import './assets/init.css'
+import 'bootstrap/dist/css/bootstrap.min.css'
+import 'bootstrap/dist/js/bootstrap.min.js'
+import './assets/bootstrap-datetimepicker.min.css'
+import './assets/bootstrap-datetimepicker.min.js'
+import './assets/bootstrap-datetimepicker.zh-CN.js'
+import './plugins/jquery-ui/jquery-ui.min.css'
+import './plugins/jquery-ui/jquery-ui.min.js'
+import echarts from 'echarts'
+import 'vuejs-dialog/dist/vuejs-dialog.min.css';
+import VuejsDialog from "vuejs-dialog"
+import vSelect from 'vue-select'
+import vSelectMenu from 'v-selectmenu';
+import VueClipboard from 'vue-clipboard2'
+Vue.use(VueClipboard)
+// import VueCookies from 'vue-cookies'
+Vue.use(vSelectMenu);
+
+// Vue.use(VueCookies)
+
+Vue.config.productionTip = false
+
+Vue.prototype.$echarts = echarts 
+
+Vue.prototype.axios = axios
+
+Vue.use(Vuex)
+
+Vue.component('v-select',vSelect)
+
+Vue.use(vPage)
+
+Vue.use(VuejsDialog,{
+  html: true, // 内容可以包含html标记
+  loader: false, // 显示载入动画
+  reverse: false, // 按钮左右反转
+  okText: '确认',  // 本地化确认按钮文字提示内容
+  cancelText: '关闭',  //本地化关闭按钮文字提示内容
+  animation: 'zoom', // 动画方式， 三选一: "zoom", "bounce", "fade"
+  type: 'basic', // 确认类型，点击确认（basic）， 'soft'(软确认), 'hard'（硬确认)
+  verification: 'continue', // 硬确认时, 作为确认文字，需要用户手工输入
+  verificationHelp: 'Type "[+:verification]" below to confirm', // 硬确认时，提示用户输入的文字
+  clicksCount: 3, // 软确认时，点击几次确认按钮完成最终的确认
+  backdropClose: false // 点背景遮罩是否退出
+})
+
+window.bus=new Vue();
+
+const store = new Vuex.Store({
+  state: {
+    feedbackNum: 0,
+    messageNum: 0,
+    reviewinfoNum: 0,
+    reminderNum: 0,
+    userType: '',
+    userRole: ''
+  },
+  mutations: {
+    updateFeedbackNum(state,feedbackNum){
+      state.feedbackNum = feedbackNum
+    },
+    updateMessageNum(state,messageNum){
+      state.messageNum = messageNum
+    },
+    updateReviewinfoNum(state,reviewinfoNum){
+      state.reviewinfoNum = reviewinfoNum
+    },
+    updateReminderNum(state,reminderNum){
+      state.reminderNum = reminderNum
+    },
+    getUserType(state,userType){
+      state.userType = userType
+    },
+    getUserRole(state,userRole){
+      state.userRole = userRole
+    }
+  }
+})
+/* eslint-disable no-new */
+new Vue({
+  el: '#app',
+  store,
+  router,
+  components: { App },
+  template: '<App/>'
+})

@@ -1,0 +1,1299 @@
+<template>
+  <div>
+    <div class="bodys">
+        <div class="search">
+            问卷名称：<input type="text" class="form-control" id="questionnaireName" style="width:130px;margin:0;margin-right:10px;">
+            问卷类型：
+            <select id="questionnaireType" class="form-control" style="width:110px;margin:0;margin-right:10px;">
+                <option value="">全部</option>
+                <option v-for="item in questionnaireTypeArr" :value="item.typeId">{{item.typeName}}</option>
+            </select>
+            创建时间：
+            <div class="form-group"  style="display: inline-block; width: 230px;margin: 0;vertical-align: middle;">
+                <div class="input-group date form_datetime2" 
+                data-date="" data-date-format="yyyy-mm-dd hh" 
+                data-link-field="dtp_input1"
+                >
+                    <input class="form-control" style="margin: 0;float: right;" id="startTime" type="text" value="" placeholder="请选择开始时间">
+                    <span class="input-group-addon"><span class="glyphicon glyphicon-remove"></span></span>
+                    <span class="input-group-addon"><span class="glyphicon glyphicon-th"></span></span>
+                </div>
+            </div>
+            <!-- <datepicker :language="zh" id="startTime" format="yyyy-MM-dd"></datepicker> -->
+            <!-- <select id="startTimeHour" style="width: 55px;">
+                <option :value="item" v-for="item in hour">{{item}}</option>
+            </select> -->
+            到 
+            <!-- <datepicker :language="zh" id="stopTime" format="yyyy-MM-dd"></datepicker> -->
+            <!-- <select id="stoptTimeHour" style="width: 55px;">
+               <option :value="item" v-for="item in hour">{{item}}</option>
+            </select> -->
+            <div class="form-group" style="display: inline-block; width: 230px;margin: 0;vertical-align: middle;">
+                <div class="input-group date form_datetime2" data-date="" 
+                data-date-format="yyyy-mm-dd hh" data-link-field="dtp_input1"
+                >
+                    <input class="form-control" style="margin: 0;float: right;" id="stopTime" type="text" value=""  placeholder="请选择结束时间">
+                    <span class="input-group-addon"><span class="glyphicon glyphicon-remove"></span></span>
+                    <span class="input-group-addon"><span class="glyphicon glyphicon-th"></span></span>
+                </div>
+            </div>
+            <button class="btn btn-primary" @click="inquire(questionnaireName,questionnaireType,startTime,stopTime,1,10)">查询</button>
+            <button class="btn btn-warning" @click="add_nair_show()">创建</button>
+            <button class="btn btn-success" @click="modifyShow(0)">修改</button>
+            <button class="btn btn-danger" @click="deleteQuestionnaire()">删除</button>
+            <button class="btn btn-info" style="padding: 5px 8px;" @click="review(0,1,'')">提交审核</button>
+        </div>
+        <table id="nair_table" class="table table-responsive">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>编号</th>
+                    <th>问卷名称</th>
+                    <th>问卷类型</th>
+                    <th>创建时间</th>
+                    <th>时效</th>
+                    <th>问卷创建人</th>
+                    <th>审核状态</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <col style="width:4%"/>
+            <col style="width:4%"/>
+            <col style="width:15%"/>
+            <col style="width:8%"/>
+            <col style="width:15%"/>
+            <col style="width:18%"/>
+            <col style="width:10%"/>
+            <col style="width:8%"/>
+            <col style="width:16%"/>
+            <tbody>
+            <tr v-for="(item,index) in initData" v-show="!noDataIsShow">
+                <td><input type="radio" name="questionNair" :value="item.questionnaireId" v-model="questionnaireId"></td>
+                <td>{{index + 1}}</td>
+                <td :title="item.questionnaireName" :id="item.questionnaireId+'Name'">{{item.questionnaireName}}</td>
+                <td :title="item.typeName">{{item.typeName}}</td>
+                <td :title="item.createDate">{{item.createDate}}</td>
+                <td :title="item.startTime+'-'+item.stopTime">{{item.startTime}}-{{item.stopTime}}</td>
+                <td :title="item.creator">{{item.creator}}</td>
+                <td class="color1" :title="item.auditStatus" :id="item.questionnaireId" v-if="item.auditStatus =='待回复' || item.auditStatus == '审核未通过' || item.auditStatus == '未提交审核'">{{item.auditStatus}}</td>
+                <td class="color2" :title="item.auditStatus" :id="item.questionnaireId" v-else-if="item.auditStatus =='待审核'">{{item.auditStatus}}</td>
+                <td class="color3" :title="item.auditStatus" :id="item.questionnaireId" v-else-if="item.auditStatus =='审核通过'">{{item.auditStatus}}</td>
+                <td class="color4" :title="item.auditStatus" :id="item.questionnaireId" v-else>{{item.auditStatus}}</td>
+                <td style="white-space: inherit;display: inline-block;width: 212px;overflow: visible;">
+                    <a href="javascript:;" @click="jumpTopicManage(item.questionnaireId,item.questionnaireName,item.typeName)">题目管理</a> | 
+                    <span @click="preview(item.questionnaireId)">预览</span> |
+                    <span v-if="item.auditStatus=='审核通过' && item.invalid == 0" :id="item.questionnaireId+'Send'" @click="sendShow(item.questionnaireId,item.sendFlag)">发送</span>
+                    <span class="gray" v-else>发送</span>|
+                    <div class="more">更多
+                        <ul class="more_ul">
+                            <li v-if="item.auditStatus!='未提交审核'&& item.invalid != 1 && item.questionnaireName.substring(0,2) != '公众' && item.sendFlag != 0" @click="review(1,item.sendFlag,item.questionnaireId)">补发</li>
+                            <li @click="modifyShow(1,item.questionnaireId)">复制</li>
+                            <li v-if="item.auditStatus!='未提交审核'&&item.auditStatus!='待审核'" @click="shareShow(item.questionnaireId)">分享</li>
+                        </ul>
+                    </div>
+                </td>
+            </tr>
+            <tr v-show="noDataIsShow">
+                <td colspan="9">{{noData}}</td>
+            </tr>
+            </tbody>
+        </table>
+        <v-page :setting="pageSet" @page-change="pageChange"></v-page>
+    </div>
+    <!-- 创建问卷 -->
+    <div class="bg_box" v-show="isShowNair">
+        <div id="add_nair" class="add_model">
+            <div class="add_title">创建问卷
+                <span class="glyphicon glyphicon-remove add_model_close" @click="isShowNair=false"></span>
+            </div>
+            <div class="add_con">
+                <div class="add_model_con_row">
+                    <span>问卷名称 ：</span>
+                    <select id="addQuestionnaireVal">
+                        <option value="公众">公众</option>
+                        <option value="行业">行业</option>
+                    </select>
+                    <input type="text" id="addQuestionnaireName">
+                    <span class="red">*</span>
+                </div>
+                <div class="add_model_con_row">
+                    <span>问卷类型 ：</span>
+                    <select id="addQuestionnaireType">
+                        <option v-for="item in questionnaireTypeArr" :value="item.typeId">{{item.typeName}}</option>
+                    </select>
+                    <span class="red">*</span>
+                </div>
+                <div class="add_model_con_row">
+                    <span>时&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;效 ：</span>
+                    <!-- <datepicker :language="zh" id="addStartTime" format="yyyy-MM-dd"></datepicker>
+                    <select id="addStartTimeHour" style="width: 90px;">
+                    <option :value="item" v-for="item in hour">{{item}}</option>
+                    </select> -->
+                    <div class="form-group"  style="display: inline-block;margin: 0;vertical-align: middle;">
+                        <div class="input-group date form_datetime" 
+                        data-date="" data-date-format="yyyy-mm-dd hh" 
+                        data-link-field="dtp_input1"
+                        >
+                            <input style="margin: 0;height: 30px;vertical-align: middle;" id="addStartTime" type="text" value="" placeholder="请选择开始时间">
+                            <span style="width:36px;" class="input-group-addon"><span class="glyphicon glyphicon-remove"></span></span>
+                            <span style="width:36px;" class="input-group-addon"><span class="glyphicon glyphicon-th"></span></span>
+                        </div>
+                    </div>
+                    <span class="red">*</span><br />
+                    <span style="margin-top: 18px;margin-right: 1px;">至 ：</span>
+                    <!-- <datepicker :language="zh" id="addStopTime" format="yyyy-MM-dd"></datepicker>
+                    <select id="addStopTimeHour" style="width: 90px;">
+                    <option :value="item" v-for="item in hour">{{item}}</option>
+                    </select> -->
+                    <div class="form-group"  style="display: inline-block;margin: 0;vertical-align: middle;">
+                        <div class="input-group date form_datetime" 
+                        data-date="" data-date-format="yyyy-mm-dd hh" 
+                        data-link-field="dtp_input1"
+                        >
+                            <input style="margin: 0;height: 30px;vertical-align: middle;" id="addStopTime" type="text" value="" placeholder="请选择结束时间">
+                            <span style="width:36px;" class="input-group-addon"><span class="glyphicon glyphicon-remove"></span></span>
+                            <span style="width:36px;" class="input-group-addon"><span class="glyphicon glyphicon-th"></span></span>
+                        </div>
+                    </div>
+                    <span class="red">*</span>
+                </div>
+                <div class="add_model_con_row">
+                    <span>未答题提醒 ：</span>
+                    <!-- <datepicker :language="zh" id="reminderTime" format="yyyy-MM-dd"></datepicker>
+                    <select id="reminderTimeHour" style="width: 90px;">
+                        <option :value="item" v-for="item in hour">{{item}}</option>
+                    </select> -->
+                    <div class="form-group"  style="display: inline-block;margin: 0;vertical-align: middle;">
+                        <div class="input-group date form_datetime" 
+                        data-date="" data-date-format="yyyy-mm-dd hh" 
+                        data-link-field="dtp_input1"
+                        >
+                            <input style="margin: 0;height: 30px;vertical-align: middle;" id="reminderTime" type="text" value="" placeholder="请选择时间">
+                            <span style="width:36px;" class="input-group-addon"><span class="glyphicon glyphicon-remove"></span></span>
+                            <span style="width:36px;" class="input-group-addon"><span class="glyphicon glyphicon-th"></span></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="add_model_btns">
+                    <button class="btn btn-primary" @click="add()">确定</button>&nbsp;
+                    <button class="btn btn-danger" @click="isShowNair=false">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+     <!-- 修改问卷 -->
+    <div class="bg_box" v-show="modifyNair">
+        <div id="modify_nair" class="add_model">
+            <div class="add_title copy_title">修改问卷
+                <span class="glyphicon glyphicon-remove add_model_close" @click="modifyNair=false"></span>
+            </div>
+            <div class="add_con">
+                <div class="add_model_con_row">
+                    <span>问卷名称 ：</span>
+                    <select id="modifyQuestionnaireVal">
+                        <option value="公众">公众</option>
+                        <option value="行业">行业</option>
+                    </select>
+                    <input type="text" id="modifyQuestionnaireName">
+                </div>
+                <div class="add_model_con_row">
+                    <span>问卷类型 ：</span>
+                    <select id="modifyQuestionnaireTyp">
+                        <option v-for="item in questionnaireTypeArr" :value="item.typeId">{{item.typeName}}</option>
+                    </select>
+                </div>
+                <div class="add_model_con_row">
+                    <span>时&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;效 ：</span>
+                    <!-- <datepicker :language="zh" id="modifyStartTime" format="yyyy-MM-dd"></datepicker>
+                    <select id="modifyStartTimeHour" style="width: 90px;">
+                    <option :value="item" v-for="item in hour">{{item}}</option>
+                    </select><br /> -->
+                    <div class="form-group"  style="display: inline-block;margin: 0;vertical-align: middle;">
+                        <div class="input-group date form_datetime" 
+                        data-date="" data-date-format="yyyy-mm-dd hh" 
+                        data-link-field="dtp_input1"
+                        >
+                            <input style="margin: 0;height: 30px;vertical-align: middle;" id="modifyStartTime" type="text" value="" placeholder="请选择开始时间">
+                            <span style="width:36px;" class="input-group-addon"><span class="glyphicon glyphicon-remove"></span></span>
+                            <span style="width:36px;" class="input-group-addon"><span class="glyphicon glyphicon-th"></span></span>
+                        </div>
+                    </div>
+                    <br>
+                    <span style="margin-top: 18px;margin-right: 1px;">至 ：</span>
+                    <!-- <datepicker :language="zh" id="modifyStopTime" format="yyyy-MM-dd"></datepicker>
+                    <select id="modifyStopTimeHour" style="width: 90px;">
+                    <option :value="item" v-for="item in hour">{{item}}</option>
+                    </select> -->
+                    <div class="form-group"  style="display: inline-block;margin: 0;vertical-align: middle;">
+                        <div class="input-group date form_datetime" 
+                        data-date="" data-date-format="yyyy-mm-dd hh" 
+                        data-link-field="dtp_input1"
+                        >
+                            <input style="margin: 0;height: 30px;vertical-align: middle;" id="modifyStopTime" type="text" value="" placeholder="请选择结束时间">
+                            <span style="width:36px;" class="input-group-addon"><span class="glyphicon glyphicon-remove"></span></span>
+                            <span style="width:36px;" class="input-group-addon"><span class="glyphicon glyphicon-th"></span></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="add_model_con_row">
+                    <span>未答题提醒 ：</span>
+                    <!-- <datepicker :language="zh" id="modifyReminderTime" format="yyyy-MM-dd"></datepicker>
+                    <select id="modifyReminderTimeHour" style="width: 90px;">
+                        <option :value="item" v-for="item in hour">{{item}}</option>
+                    </select> -->
+                    <div class="form-group"  style="display: inline-block;margin: 0;vertical-align: middle;">
+                        <div class="input-group date form_datetime" 
+                        data-date="" data-date-format="yyyy-mm-dd hh" 
+                        data-link-field="dtp_input1"
+                        >
+                            <input style="margin: 0;height: 30px;vertical-align: middle;" id="modifyReminderTime" type="text" value="" placeholder="请选择时间">
+                            <span style="width:36px;" class="input-group-addon"><span class="glyphicon glyphicon-remove"></span></span>
+                            <span style="width:36px;" class="input-group-addon"><span class="glyphicon glyphicon-th"></span></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="add_model_btns">
+                    <button class="btn btn-primary" @click="modify()">确定</button>&nbsp;
+                    <button class="btn btn-danger" @click="modifyNair=false">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- 提交审核 -->
+    <div class="bg_box" v-show="isShowExamine">
+        <div id="add_examine" class="add_model">
+            <div class="add_title">请选择要发送的人员
+                <span class="glyphicon glyphicon-remove add_model_close" @click="isShowExamine=false"></span>
+            </div>
+            <div class="add_con">
+                <div class="add_model_con_row">
+                    <input type="text" placeholder="请输入行业或用户名" id="realNames"/>
+                    <select v-model="unitId">
+                        <option value="0">全部</option>
+                        <option :value="item.unitId" v-for="item in unitArr">{{item.unitName}}</option>
+                    </select>
+                    <button class="btn btn-info btn-sm" @click="auditUserInquire">查询</button>
+                </div>
+                <table class="table table-responsive">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th> 用户名</th>
+                            <th>行业</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="item in auditUser" v-show="!auditUserShow">
+                            <td><input type="checkbox" :value="item.userId" v-model="userId"></td>
+                            <td>{{item.realName}}</td>
+                            <td>{{item.unitName}}</td>
+                        </tr>
+                        <tr v-show="auditUserShow">
+                            <td>暂无数据</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="add_model_btns">
+                    <button class="btn btn-primary" @click="submitReview">确定</button>&nbsp;
+                    <button class="btn btn-danger" @click="isShowExamine=false">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- 发送主题 -->
+    <div class="bg_box" v-show="isShowSend">
+        <div class="add_model send_model">
+            <div class="add_title">发送
+                <span class="glyphicon glyphicon-remove add_model_close" @click="isShowSend=false"></span>
+            </div>
+            <div class="add_con">
+                <div class="add_model_con_row">
+                    <select id="questionnaireStyle" class="form-control">
+                        <option v-for="(item,index) in tests" :value="item.value">{{item.text}}</option>
+                    </select>
+                </div>
+                <div class="add_model_btns">
+                    <button class="btn btn-primary" @click="send">确定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- 分享 -->
+    <div class="bg_box" v-show="isShowQrcode">
+        <div class="add_model qrcode_model">
+            <div class="add_title">分享
+                <span class="glyphicon glyphicon-remove add_model_close" @click="isShowQrcode=false"></span>
+            </div>
+            <div class="add_con">
+                <div class="add_model_con_row">
+                    <span style="width:120px;">请选择问卷的风格:</span>
+                    <select id="qrcodeeStyle" class="form-control" @change="share" style="width: 60%;display:inline-block;">
+                        <option v-for="(item,index) in tests" :value="item.value">{{item.text}}</option>
+                    </select>
+                </div>
+                <div id="qrcode">
+                <img :src="qrcodeSrc" alt="">
+                </div>
+                <div>
+                    <input type="text" v-model="qrcodeLink" id="copy_text" style="width:80%;">
+                    <button class="btn btn-primary" style="padding: 3px 7px;" @click="">复制链接</button>
+                </div>
+            </div>
+        </div>
+    </div>
+  </div>
+</template>
+<style scoped>
+#nair_table tbody tr td:last-child span{
+    cursor: pointer;
+}
+#add_examine{
+    width:400px;
+}
+.add_model_con_row span{
+    display: inline-block;
+    width: 90px;
+    text-align: left;
+}
+#add_examine .add_con{
+    padding: 0 15px 15px;
+}
+#add_examine .table{
+    margin-bottom: 0;
+}
+#add_examine .table th,#add_examine .table td{
+    padding: 5px;
+}
+/*添加弹框*/
+.add_model{
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%,-50%);
+    border: 2px solid #3967AE;
+    border-radius: 5px;
+    background: #fff;
+}
+.add_title{
+    color: #3967AE;
+    background: #F8F8FA;
+    padding: 10px 15px;
+}
+.add_model_close{
+    float: right;
+    font-size: 18px;
+    cursor: pointer;
+}
+.add_con{
+    padding: 15px;
+}
+.add_model input,.add_model select{
+    padding: 3px 10px;
+    border: 1px solid #ccc;
+}
+.add_model_con_row{
+    padding: 7px 0;
+    font-size: 12px;
+}
+.add_model_btns{
+    text-align: center;
+    padding-top: 15px;
+}
+.more{
+    display: inline-block;
+    position: relative;
+}
+.more:hover .more_ul{
+    display: block;
+}
+.more_ul{
+    position: absolute;
+    left: -5px;
+    border: 1px solid #DFDFDF;
+    border-radius: 3px;
+    width: 50px;
+    background: #fff;
+    z-index: 1;
+    display: none;
+}
+.more_ul li{
+    padding: 3px 8px;
+    cursor: pointer;
+}
+.send_model {
+    width: 300px;
+    height: 200px;
+}
+.qrcode_model {
+    min-width: 360px;
+    min-height: 200px;
+}
+#qrcode {
+    text-align: center;
+    margin: 10px 0;
+}
+.red{
+    color:#f00;
+}
+#questionnaireType{
+    width:130px;
+    margin: 0;
+    margin-right:8px;
+}
+</style>
+<script>
+import datepicker from 'vuejs-datepicker'
+import {zh} from 'vuejs-datepicker/dist/locale'
+export default {
+    data(){
+        return {
+        isShowNair: false,
+        isShowExamine: false,
+        isShowSend: false,
+        isShowQrcode: false,
+        modifyNair: false,
+        tests: [
+            { value: '1', text: '风格一' },
+            { value: '2', text: '风格二' },
+            { value: '3', text: '风格三' },
+            { value: '4', text: '风格四' },
+            { value: '5', text: '风格五' }
+        ],//风格数据
+        zh:zh,//日期中文
+        pageSet: {
+            totalRow: '1',//required option 分页总条数
+            language: 'cn',//default: 'cn'
+            pageSizeMenu: false,//default: [10, 20, 50, 100]
+            info: false,
+            align: 'center'
+        },
+        hour:['00','01','02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','19','20','21','22','23'],
+        initData: [],//初始数据
+        initData2:[],
+        questionnaireName: "",//问卷名称
+        questionnaireType: "",//问卷类型
+        questionnaireTypeArr: [],//问卷类型数据
+        startTime: "",//开始时间
+        stopTime: "",//结束时间
+        page: "",//页码
+        rows: "",//每页条数
+        noData: "",//暂无数据
+        questionnaireId: '',//每条数据Id
+        questionnaireId2: "",
+        noDataIsShow: false, //暂无数据显隐判断
+        unitArr: [],//用户单位
+        unitId: 0,//单位id
+        auditUser: [],//审核列表数据
+        userId: [],//用户id
+        auditUserShow: false,//提交审核暂无数据显影
+        sendId: '',//发送功能需要的id
+        num: 0,//判断是复制还是修改功能
+        shareId: '',//分享id 
+        qrcodeLink: '',//二维码链接
+        qrcodeSrc: '',//二维码图片
+        num2: 0,
+        bufaId: '',
+        flag: false
+        }
+    },
+    components: {
+        datepicker
+    },
+    mounted(){
+        this.questionnaireTypeFn()
+        this.unitFn()
+        $('.form_datetime').datetimepicker({
+                weekStart: 0, //一周从哪一天开始
+                todayBtn:  1, //
+                autoclose: 1,
+                minView: 1,
+                todayHighlight: 1,
+                startView: 2,
+                forceParse: 0,
+                showMeridian: false,
+                minuteStep: 1,
+                language: 'zh-CN',
+                startDate: new Date()
+            });
+            $('.form_datetime2').datetimepicker({
+                weekStart: 0, //一周从哪一天开始
+                todayBtn:  1, //
+                autoclose: 1,
+                minView: 1,
+                todayHighlight: 1,
+                startView: 2,
+                forceParse: 0,
+                showMeridian: false,
+                minuteStep: 1,
+                language: 'zh-CN'
+            });
+    },
+    computed:{
+        getUserRole(){
+            return this.$store.state.userRole
+        }
+    },
+    methods: {
+    add_nair_show(){
+        this.isShowNair = true
+        $("#addQuestionnaireName").val('')
+        $("#addStartTime").val('')
+        $("#addStopTime").val('')
+        $("#reminderTime").val('')
+    },
+    inquire(questionnaireName,questionnaireType,startTime,stopTime,page,rows){
+        this.questionnaireName = $('#questionnaireName').val()
+        this.questionnaireType = $('#questionnaireType').val()
+        var startTime = $('#startTime').val()
+        this.startTime = startTime
+        var stopTime = $('#stopTime').val()
+        this.stopTime = stopTime
+        var startTimeStr = $("#startTime").val()+':00'
+        var stopTimeStr = $("#stopTime").val()+':00'
+        var d1 = new Date(startTimeStr.replace(/\-/g, "\/"));  
+        var d2 = new Date(stopTimeStr.replace(/\-/g, "\/"));  
+        if(this.startTime!=""&&this.stopTime!=""&&d1 >=d2){  
+            this.$dialog.alert("开始时间不能大于结束时间！");  
+            return false;  
+        }
+        let param = new URLSearchParams()
+        param.append('questionnaireName', this.questionnaireName)
+        param.append('questionnaireType', this.questionnaireType)
+        param.append('startTime', this.startTime)
+        param.append('stopTime', this.stopTime)
+        param.append('page',page)
+        param.append('rows',rows)
+        this.axios({
+            method: 'post',
+            url: 'questionnaire.do?FindQuestionnaire',
+            data: param,
+        }).then(res=>{
+            if(res.data.e == 0){
+                this.pageSet.totalRow = res.data.n
+                this.noDataIsShow = false
+                this.initData = res.data.o
+            }else {
+                this.pageSet.totalRow = 1
+                this.noData = "暂无数据"
+                this.noDataIsShow = true
+            }
+        })
+    },
+    add(){
+        var questionnaireName = "";
+        questionnaireName = $('#addQuestionnaireVal').val()+'-'+ $('#addQuestionnaireName').val()
+        var questionnaireType = $('#addQuestionnaireType').val()
+        var startTime = "";
+        startTime = $('#addStartTime').val();
+        var startTimeStr = startTime+':00'
+        // startTime = startTime +' '+ $('#addStartTimeHour').val();
+        // var startTimeStr = startTime+':00:00';
+        //startTimeStr=startTime.replace(new RegExp(/-/gm) ,"/");
+        var stopTime = "";
+        stopTime = $('#addStopTime').val();
+        var stopTimeStr = stopTime+':00'
+        // stopTime = stopTime +' '+ $('#addStopTimeHour').val();
+        // var stopTimeStr = stopTime+':00';
+        //stopTimeStr=stopTime.replace(new RegExp(/-/gm) ,"/");
+        var reminderTime = "";
+        reminderTime = $('#reminderTime').val();
+        var reminderTimeStr = reminderTime+':00'
+        // reminderTime = reminderTime +' '+ $('#reminderTimeHour').val();
+        // var reminderTimeStr = reminderTime+':00:00';
+        //reminderTimeStr = reminderTime.replace(new RegExp(/-/gm) ,"/");
+        
+        var d1 = new Date(startTimeStr.replace(/-/g,"\/"))
+        var d2 = new Date(stopTimeStr.replace(/-/g,"\/"))
+        var d3 = new Date(reminderTimeStr.replace(/-/g,"\/"))
+
+        if($('#addQuestionnaireName').val() == ""){
+            this.$dialog.alert("问卷名称名称不能为空")
+            return false
+        }
+        if(questionnaireType == ""){
+            this.$dialog.alert("问卷类型不能为空")
+            return false
+        }
+        if($('#addStartTime').val() == ""){
+            this.$dialog.alert("开始时间不能为空")
+            return false
+        }
+        if($('#addStopTime').val() == ""){
+            this.$dialog.alert("结束时间不能为空")
+            return false
+        }
+        // if($('#reminderTime').val() == ""){
+        //     this.$dialog.alert("提醒时间不能为空")
+        //     return false
+        // }
+        if(d1 > d2){
+            this.$dialog.alert("开始时间不能大于结束时间")
+            return false
+        }
+        if($('#reminderTime').val() != ""){
+            if(d3 > d2 || d3 < d1) {
+                this.$dialog.alert("提醒时间必须在开始时间和结束时间之间选择")
+                return false
+            }
+        }
+        
+        let param = new URLSearchParams()
+        param.append('questionnaireName', questionnaireName)
+        param.append('questionnaireType', questionnaireType)
+        param.append('startTime', startTime)
+        param.append('stopTime', stopTime)
+        param.append('reminderTime', reminderTime)
+        this.axios({
+            method: 'post',
+            url: 'questionnaire.do?SaveQuestionnaire',
+            data: param,
+        }).then(res=>{
+            if(res.data.e == 0){
+                this.$dialog.alert("问卷名称已存在")
+            }else if(res.data.e == 1){
+                this.$dialog.alert("添加成功")
+                this.isShowNair = false
+                this.inquire(questionnaireName,questionnaireType,startTime,stopTime,this.page,this.rows)
+            }else {
+                this.$dialog.alert("添加失败")
+            }
+        })
+    },
+    modifyShow(num,id){
+        //复制和修改问卷
+        if(num == 1){
+            $('.copy_title').text('复制问卷')
+            this.num = 1
+            this.modifyNair = true
+            this.questionnaireId2 = id
+            let param = new URLSearchParams()
+            param.append('id',id)
+            this.axios({
+                method: 'post',
+                url: 'questionnaire.do?FindQuestionnaireId',
+                data: param,
+            }).then(res=>{
+                if(res.data.e == 0){
+                    var data = res.data.o[0]
+                    var questionnaireName = data.questionnaireName
+                    var str1 = questionnaireName.split('-');
+                    $('#modifyQuestionnaireVal').val(str1[0])
+                    $('#modifyQuestionnaireName').val(str1[1])
+                    $('#modifyQuestionnaireTyp').val(data.typeId)
+                    var startTime = data.startTime
+                    //var startTimeStr = startTime.split(' ')
+                    $('#modifyStartTime').val(startTime)
+                    //$('#modifyStartTimeHour').val(startTimeStr[1])
+                    var stopTime = data.stopTime
+                    //var stopTimeStr = stopTime.split(' ')
+                    $('#modifyStopTime').val(stopTime)
+                    //$('#modifyStopTimeHour').val(stopTimeStr[1])
+                    var reminderTime = data.reminderTime
+                    //var reminderTimeStr = reminderTime.split(' ')
+                    $('#modifyReminderTime').val(reminderTime)
+                    //$('#modifyReminderTimeHour').val(reminderTimeStr[1])
+                }
+            })
+        }else {
+            $('.copy_title').text('修改问卷') 
+            this.num = 0
+            if($("#nair_table tr td input").length == 0){
+                this.$dialog.alert("当前页面暂无数据")
+            }else if($("#nair_table tr td input:checked").length == 0){
+                this.$dialog.alert("请选择一条数据")
+            }else{
+                if($('#'+this.questionnaireId).text() == "待审核" || $('#'+this.questionnaireId).text() == "审核通过"){
+                    this.$dialog.alert("待审核或者审核通过不能修改问卷")
+                    return false
+                }
+                this.modifyNair = true
+                let param = new URLSearchParams()
+                param.append('id',this.questionnaireId)
+                this.axios({
+                    method: 'post',
+                    url: 'questionnaire.do?FindQuestionnaireId',
+                    data: param,
+                }).then(res=>{
+                    if(res.data.e == 0){
+                        var data = res.data.o[0]
+                        var questionnaireName = data.questionnaireName
+                        var str1 = questionnaireName.split('-');
+                        $('#modifyQuestionnaireVal').val(str1[0])
+                        $('#modifyQuestionnaireName').val(str1[1])
+                        $('#modifyQuestionnaireTyp').val(data.typeId)
+                        var startTime = data.startTime
+                        //var startTimeStr = startTime.split(' ')
+                        $('#modifyStartTime').val(startTime)
+                       // $('#modifyStartTimeHour').val(startTimeStr[1])
+                        var stopTime = data.stopTime
+                        //var stopTimeStr = stopTime.split(' ')
+                        $('#modifyStopTime').val(stopTime)
+                        //$('#modifyStopTimeHour').val(stopTimeStr[1])
+                        var reminderTime = data.reminderTime
+                        //var reminderTimeStr = reminderTime.split(' ')
+                        $('#modifyReminderTime').val(reminderTime)
+                        //$('#modifyReminderTimeHour').val(reminderTimeStr[1])
+                    }
+                })
+            }
+        }
+    },
+    modify(){
+        var questionnaireName = "";
+        questionnaireName = $('#modifyQuestionnaireVal').val()+'-'+ $('#modifyQuestionnaireName').val()
+        var questionnaireType = $('#modifyQuestionnaireTyp').val()
+        var startTime = "";
+        startTime = $('#modifyStartTime').val();
+        var startTimeStr = startTime+':00'
+        // startTime = startTime +' '+ $('#modifyStartTimeHour').val();
+        // var startTimeStr = startTime+':00:00';
+        //startTimeStr=startTime.replace(new RegExp(/-/gm) ,"/");
+        var stopTime = "";
+        stopTime = $('#modifyStopTime').val();
+        var stopTimeStr = stopTime+':00'
+        // stopTime = stopTime +' '+ $('#modifyStopTimeHour').val();
+        // var stopTimeStr = stopTime+':00';
+        //stopTimeStr=stopTime.replace(new RegExp(/-/gm) ,"/");
+        var reminderTime = "";
+        reminderTime = $('#modifyReminderTime').val();
+        var reminderTimeStr = reminderTime+':00'
+        // reminderTime = reminderTime +' '+ $('#modifyReminderTimeHour').val();
+        // var reminderTimeStr = reminderTime+':00:00';
+       //reminderTimeStr = reminderTime.replace(new RegExp(/-/gm) ,"/");
+        var d1 = new Date(startTimeStr.replace(/-/g,"\/"))
+        var d2 = new Date(stopTimeStr.replace(/-/g,"\/"))
+        var d3 = new Date(reminderTimeStr.replace(/-/g,"\/"))
+        if($('#modifyQuestionnaireName').val() == ""){
+            this.$dialog.alert("问卷名称名称不能为空")
+            return false
+        }
+        if($('#modifyStartTime').val() == ""){
+            this.$dialog.alert("开始时间不能为空")
+            return false
+        }
+        if($('#modifyStopTime').val() == ""){
+            this.$dialog.alert("结束时间不能为空")
+            return false
+        }
+        if($('#modifyReminderTime').val() == ""){
+            this.$dialog.alert("提醒时间不能为空")
+            return false
+        }
+        if(d1 > d2){
+            this.$dialog.alert("开始时间不能大于结束时间")
+            return false
+        }
+        if(d3 > d2 || d3 < d1) {
+            this.$dialog.alert("提醒时间必须在开始时间和结束时间之间选择")
+            return false
+        }
+        if(this.num==0){
+            let param = new URLSearchParams()
+            param.append('questionnaireName', questionnaireName)
+            param.append('questionnaireType', questionnaireType)
+            param.append('startTime', startTime)
+            param.append('stopTime', stopTime)
+            param.append('reminderTime', reminderTime)
+            param.append('id', this.questionnaireId)
+            this.axios({
+                method: 'post',
+                url: 'questionnaire.do?updateQuestionnaire',
+                data: param,
+            }).then(res=>{
+                if(res.data.e == 0){
+                    this.$dialog.alert("问卷名称已存在")
+                }else if(res.data.e == 1){
+                    this.$dialog.alert("修改成功")
+                    this.modifyNair = false
+                    this.inquire(questionnaireName,questionnaireType,startTime,stopTime,this.page,this.rows)
+                }else {
+                    this.$dialog.alert("修改失败")
+                }
+            })
+        }else {
+            let param = new URLSearchParams()
+            param.append('questionnaireId',this.questionnaireId2)
+            param.append('questionnaireName', questionnaireName)
+            param.append('questionnaireType', questionnaireType)
+            param.append('startTime', startTime)
+            param.append('stopTime', stopTime)
+            param.append('reminderTime', reminderTime)
+            this.axios({
+                method: 'post',
+                url: 'topicManagement.do?CopyQuestionnaire',
+                data: param,
+            }).then(res=>{
+                if(res.data.e == 0){
+                    this.$dialog.alert("问卷名称已存在")
+                }else if(res.data.e == 1){
+                    this.$dialog.alert("复制成功")
+                    this.modifyNair = false
+                    this.inquire(questionnaireName,questionnaireType,startTime,stopTime,this.page,this.rows)
+                    
+                }else {
+                    this.$dialog.alert("复制失败")
+                }
+            })
+        }
+        
+    },
+    deleteQuestionnaire(){
+        //删除
+        if($("#nair_table tr td input").length == 0){
+            this.$dialog.alert("当前页面暂无数据")
+        }else if($("#nair_table tr td input:checked").length == 0){
+            this.$dialog.alert("请选择一条数据")
+        }else {
+            var questionnaireId = $('#'+this.questionnaireId).text();
+            if(questionnaireId == "待审核" || questionnaireId == "审核通过"){
+                this.$dialog.alert("问卷状态为待审核或审核通过，不能进行删除")
+                return false
+            }
+            let param = new URLSearchParams()
+            param.append('id', this.questionnaireId)
+            this.axios({
+                method: 'post',
+                url: 'questionnaire.do?deleteQuestionnaire',
+                data: param,
+            }).then(res=>{
+                if(res.data.e == 0){
+                    this.$dialog.alert("删除成功")
+                    this.questionnaireId = []
+                    this.inquire(this.questionnaireName,this.questionnaireType,this.startTime,this.stopTime,this.page,this.rows)
+                }else {
+                    this.$dialog.alert("删除失败")
+                }
+            })
+        }
+    },
+    questionnaireTypeFn(){
+        this.axios.get('typeManagement.do?FindIdAndName').then(res=>{
+            if(res.data.e == 0){
+                this.questionnaireTypeArr = res.data.o
+            }
+        })
+    },
+    review(num,sendFlag,bufaId){
+        //审核
+        if(num == 0){
+            if($("#nair_table tr td input").length == 0){
+                this.$dialog.alert("当前页面暂无数据")
+            }else if($("#nair_table tr td input:checked").length == 0){
+                this.$dialog.alert("请至少选择一条数据")
+            }else {
+                if($('#'+this.questionnaireId).text() == "待审核" || $('#'+this.questionnaireId).text() == "审核通过"){
+                    this.$dialog.alert("不能重复提交审核")
+                    return false
+                }
+                 $.ajax({
+                    method: 'post',
+                    url: 'questionBank.do?PreviewQuestionnaire',
+                    data: {'id':this.questionnaireId},
+                    dataType: 'json',
+                    success:(res)=>{
+                        if(res.e == 0){
+                            for(var i = 0;i < res.o.length;i++){
+                            if(res.o[i].questionType != "填空"){
+                                var answerOptions = res.o[i].answerOptions
+                                if(answerOptions != null){
+                                    var answerOptionsArr = answerOptions.split(',')
+                                    var answerOptionsValue = res.o[i].answerOptionsValue
+                                    var answerOptionsValueArr = answerOptionsValue.split(',')
+                                }
+                                var data = [
+                                    {"answerOptions":answerOptionsArr[0],"answerOptionsValue":answerOptionsValueArr[0]},
+                                    {"answerOptions":answerOptionsArr[1],"answerOptionsValue":answerOptionsValueArr[1]},
+                                    {"answerOptions":answerOptionsArr[2],"answerOptionsValue":answerOptionsValueArr[2]},
+                                    {"answerOptions":answerOptionsArr[3],"answerOptionsValue":answerOptionsValueArr[3]},
+                                    {"answerOptions":answerOptionsArr[4],"answerOptionsValue":answerOptionsValueArr[4]}
+                                    ]
+                                res.o[i].data= data
+                                }else {
+                                var data = [
+                                    {
+                                    "answerOptions":null,"answerOptionsValue":null,"fillingType":res.o[i].fillingType
+                                    }
+                                ]
+                                res.o[i].data= data
+                                }
+                                this.initData2 = res.o
+                                var questionnaireTypeName = $('#'+this.questionnaireId+'Name').text()
+                                var questionnaireTypeNameStr = questionnaireTypeName.substring(0,2)
+                                if(questionnaireTypeNameStr == "公众"){
+                                    let param = new URLSearchParams()
+                                    param.append('questionnaireId',this.questionnaireId)
+                                    param.append('questionnaireName', $('#'+this.questionnaireId+"Name").text())
+                                    param.append('userId', '')
+                                    param.append('questionnaireTypeName',questionnaireTypeNameStr)
+                                    this.axios({
+                                        method: 'post',
+                                        url: 'informationaudit.do?SaveInformationAudit',
+                                        data: param,
+                                    }).then(res=>{
+                                        if(res.data.e == 0){
+                                            this.$dialog.alert("提交审核成功")
+                                            this.inquire(this.questionnaireName,this.questionnaireType,this.startTime,this.stopTime,this.page,this.rows)
+                                            this.stateCommit()
+                                            this.stateCommit2()
+                                        }else {
+                                            this.$dialog.alert("提交审核失败")
+                                        }
+                                    })
+                                }else {
+                                    this.isShowExamine = true
+                                    let param = new URLSearchParams()
+                                    param.append('unitId',this.unitId)
+                                    param.append('realNames',$('#realNames').val())
+                                    this.axios({
+                                        method: 'post',
+                                        url: 'UserManagement.do?SubmissionOfAuditUser',
+                                        data: param,
+                                    }).then(res=>{
+                                        if(res.data.e == 1){
+                                            this.auditUser = res.data.o
+                                            this.auditUserShow = false
+                                        }else {
+                                            this.auditUserShow = true
+                                        }
+                                    })
+                                }
+                            }
+                        }else {
+                            this.initData2 = []
+                            this.$dialog.alert("当前问卷为空，请添加题目后再进行提交")
+                        }
+                    }
+                })
+            }
+        }else {
+            this.isShowExamine = true
+            let param = new URLSearchParams()
+            param.append('unitId',this.unitId)
+            param.append('realNames',$('#realNames').val())
+            this.axios({
+                method: 'post',
+                url: 'UserManagement.do?SubmissionOfAuditUser',
+                data: param,
+            }).then(res=>{
+                if(res.data.e == 1){
+                    this.auditUser = res.data.o
+                    this.auditUserShow = false
+                }else {
+                    this.auditUserShow = true
+                }
+            })
+        }
+        this.num2 = num
+        this.bufaId = bufaId
+    },
+    submitReview(){
+        if(this.num2 == 0){
+            $.ajax({
+                method: 'post',
+                url: 'questionBank.do?PreviewQuestionnaire',
+                data: {'id':this.questionnaireId},
+                async: false,
+                dataType: 'json',
+                success:(res)=>{
+                    if(res.e == 0){
+                        for(var i = 0;i < res.o.length;i++){
+                        if(res.o[i].questionType != "填空"){
+                            var answerOptions = res.o[i].answerOptions
+                            if(answerOptions != null){
+                                var answerOptionsArr = answerOptions.split(',')
+                                var answerOptionsValue = res.o[i].answerOptionsValue
+                                var answerOptionsValueArr = answerOptionsValue.split(',')
+                            }
+                            var data = [
+                                {"answerOptions":answerOptionsArr[0],"answerOptionsValue":answerOptionsValueArr[0]},
+                                {"answerOptions":answerOptionsArr[1],"answerOptionsValue":answerOptionsValueArr[1]},
+                                {"answerOptions":answerOptionsArr[2],"answerOptionsValue":answerOptionsValueArr[2]},
+                                {"answerOptions":answerOptionsArr[3],"answerOptionsValue":answerOptionsValueArr[3]},
+                                {"answerOptions":answerOptionsArr[4],"answerOptionsValue":answerOptionsValueArr[4]}
+                                ]
+                            res.o[i].data= data
+                            }else {
+                            var data = [
+                                {
+                                "answerOptions":null,"answerOptionsValue":null,"fillingType":res.o[i].fillingType
+                                }
+                            ]
+                            res.o[i].data= data
+                            }
+                            this.initData2 = res.o
+                            let param = new URLSearchParams()
+                            var questionnaireTypeName = $('#'+this.questionnaireId+'Name').text()
+                            var questionnaireTypeNameStr = questionnaireTypeName.substring(0,2)
+                            var userId = this.userId.join()
+                            if(userId == ""){
+                                this.$dialog.alert("请选择审核人员")
+                                return false
+                            }
+                            if(this.flag == false){
+                                this.$dialog.alert("当前问卷为空，请添加题目后再进行提交")
+                                return false
+                            }
+                            param.append('questionnaireId', this.questionnaireId)
+                            param.append('questionnaireName', $('#'+this.questionnaireId+"Name").text())
+                            param.append('userId',userId)
+                            param.append('questionnaireTypeName',questionnaireTypeNameStr)
+                            this.axios({
+                                method: 'post',
+                                url: 'informationaudit.do?SaveInformationAudit',
+                                data: param
+                            }).then(res=>{
+                                if(res.data.e == 0){
+                                    this.$dialog.alert("提交审核成功")
+                                    this.isShowExamine = false
+                                    this.inquire(this.questionnaireName,this.questionnaireType,this.startTime,this.stopTime,this.page,this.rows)
+                                    this.stateCommit()
+                                    this.stateCommit2()
+                                }else {
+                                    this.$dialog.alert("提交审核失败")
+                                }
+                            })
+                        }
+                    }else {
+                        this.initData2 = []
+                        this.$dialog.alert("当前问卷为空，请添加题目后再进行提交")
+                    }
+                }
+            })
+        }else {
+            var questionnaireTypeName = $('#'+this.bufaId+'Name').text()
+            var questionnaireTypeNameStr = questionnaireTypeName.substring(0,2)
+            var userId = this.userId.join()
+            if(userId == ""){
+                this.$dialog.alert("请选择补发人员")
+                return false
+            }
+            let param = new URLSearchParams()
+            param.append('questionnaireId',this.bufaId)
+            param.append('questionnaireStyle','')
+            param.append('questionnaireTypeName',questionnaireTypeNameStr)
+            param.append('userNum',userId)
+            this.axios({
+                method: 'post',
+                url: 'informationaudit.do?SendQuestionnaire',
+                data: param
+            }).then(res=>{
+                if(res.data.e == 2){
+                    this.$dialog.alert("发送成功")
+                    this.isShowSend = false
+                    this.inquire(this.questionnaireName,this.questionnaireType,this.startTime,this.stopTime,this.page,this.rows)
+                }
+                if(res.data.e == 3){
+                    this.$dialog.alert("发送失败")
+                }
+            })
+        }
+         
+    },
+    auditUserInquire(){
+        //提交审核-查询方法
+        let param = new URLSearchParams()
+        param.append('realNames', $('#realNames').val())
+        param.append('unitId', this.unitId)
+        this.axios({
+            method: 'post',
+            url: 'UserManagement.do?SubmissionOfAuditUser',
+            data: param,
+        }).then(res=>{
+            if(res.data.e == 1){
+                this.auditUser = res.data.o
+                this.auditUserShow = false
+            }else {
+                this.auditUserShow = true
+            }
+        })
+    },
+    sendShow(id,sendFlag){
+        this.sendId = id;
+        // if(num == 0){
+        //     if($('#'+id).text() == "审核通过"){
+        //         if(sendFlag == 0){
+        //             this.isShowSend = true
+        //         }else {
+        //             this.$dialog.alert("不能重复发送 只能选择补发")
+        //         }
+        //     }else {
+        //         this.$dialog.alert("审核通过之后才能进行发送")
+        //     }
+        // }else {
+        //      this.isShowSend = true
+        // }
+        if($('#'+id).text() == "审核通过"){
+            this.isShowSend = true
+        }else {
+            this.$dialog.alert("审核通过之后才能进行发送")
+        }
+    },
+    send(){
+        //发送
+        var questionnaireTypeName = $('#'+this.sendId+'Name').text()
+        var questionnaireTypeNameStr = questionnaireTypeName.substring(0,2)
+        let param = new URLSearchParams()
+        param.append('questionnaireId',this.sendId)
+        param.append('questionnaireStyle',$('#questionnaireStyle').val())
+        param.append('questionnaireTypeName',questionnaireTypeNameStr)
+        param.append('userNum','')
+        this.axios({
+            method: 'post',
+            url: 'informationaudit.do?SendQuestionnaire',
+            data: param
+        }).then(res=>{
+            if(res.data.e == 2){
+                this.$dialog.alert("发送成功")
+                this.isShowSend = false
+                this.inquire(this.questionnaireName,this.questionnaireType,this.startTime,this.stopTime,this.page,this.rows)
+            }
+            if(res.data.e == 3){
+                this.$dialog.alert("发送失败")
+            }
+        })
+    },
+    shareShow(id){
+        this.shareId = id
+        if($('#'+id).text() == "审核通过"){
+            this.isShowQrcode = true
+        }else {
+            this.$dialog.alert("审核通过之后才能进行分享")
+        }
+    },
+    share(){
+        //分享
+        let param = new URLSearchParams()
+        param.append('questionnaireId',this.shareId)
+        param.append('qrcodeeStyle',$('#qrcodeeStyle').val())
+        this.axios({
+            method: 'post',
+            url: 'informationaudit.do?QuestionnaireSharing',
+            data: param
+        }).then(res=>{
+            if(res.data.e == 3){
+               this.$dialog.alert("生成二维码和链接成功")
+               this.qrcodeSrc = res.data.o[0].QR
+               this.qrcodeLink = res.data.o[0].link
+            }
+        })
+    },
+    unitFn(){
+        //获取用户单位信息
+        this.axios.get('UserManagement.do?gainUnit').then(res=>{
+            this.unitArr = res.data.o
+        })
+    },
+    jumpTopicManage(id,name,type){
+        //跳转到题目管理
+        if($('#'+id).text() == '待审核' || $('#'+id).text() == '审核通过'){
+            this.$dialog.alert("待审核或者审核通过不能进入题目管理")
+        }else {
+            this.$router.push({path:'/topicManage',query:{questionnaireId:id,questionnaireName:name,questionnaireType:type}})
+        }
+        
+    },
+    pageChange(pInfo){
+        //分页方法 pInfo{pageNumber: 1, pageSize: 10}
+        this.page = pInfo.pageNumber
+        this.rows = pInfo.pageSize
+        this.inquire(this.questionnaireName,this.questionnaireType,this.startTime,this.stopTime,this.page,this.rows)
+    },
+    preview(id){
+      //预览
+      this.$router.push({path:'/template?index=template1',query:{id:id}})
+    },
+    // initTemplate(id){
+    //   let param = new URLSearchParams()
+    //   param.append('id',id)
+    //   $.ajax({
+    //       method: 'post',
+    //       url: 'questionBank.do?PreviewQuestionnaire',
+    //       data: {'id':id},
+    //       async: false,
+    //       dataType: 'json',
+    //       success:(res)=>{
+    //            if(res.e == 0){
+    //             for(var i = 0;i < res.o.length;i++){
+    //             if(res.o[i].questionType != "填空"){
+    //                 var answerOptions = res.o[i].answerOptions
+    //                 if(answerOptions != null){
+    //                     var answerOptionsArr = answerOptions.split(',')
+    //                     var answerOptionsValue = res.o[i].answerOptionsValue
+    //                     var answerOptionsValueArr = answerOptionsValue.split(',')
+    //                 }
+    //                 var data = [
+    //                     {"answerOptions":answerOptionsArr[0],"answerOptionsValue":answerOptionsValueArr[0]},
+    //                     {"answerOptions":answerOptionsArr[1],"answerOptionsValue":answerOptionsValueArr[1]},
+    //                     {"answerOptions":answerOptionsArr[2],"answerOptionsValue":answerOptionsValueArr[2]},
+    //                     {"answerOptions":answerOptionsArr[3],"answerOptionsValue":answerOptionsValueArr[3]},
+    //                     {"answerOptions":answerOptionsArr[4],"answerOptionsValue":answerOptionsValueArr[4]}
+    //                     ]
+    //                 res.o[i].data= data
+    //                 }else {
+    //                 var data = [
+    //                     {
+    //                     "answerOptions":null,"answerOptionsValue":null,"fillingType":res.o[i].fillingType
+    //                     }
+    //                 ]
+    //                 res.o[i].data= data
+    //                 }
+    //                 this.initData2 = res.o
+    //                 console.log(res.o)
+    //                 console.log(this.initData2)
+    //             }
+    //         }else {
+    //             this.initData2 = []
+    //         }
+    //       }
+    //   })
+    // },
+    stateCommit(){
+       this.axios.get('FeedbackIng.do?StatisticalFeedbackState').then(res=>{
+            if(res.data.e == 0){
+                this.$store.commit('updateFeedbackNum',res.data.o)
+            }
+        })
+        this.axios.get('informationaudit.do?FindInformationAuditTotal').then(res=>{
+            if(res.data.e == 0){
+                this.$store.commit('updateMessageNum',res.data.o.totalQuantity)
+            }
+        })
+    },
+    stateCommit2(){
+      var auditType = ''
+      if(this.getUserRole == "" || this.getUserRole == null){
+        auditType = "效益评估结果审核,反馈消息审核,问卷审核"
+      }else {
+        auditType = this.getUserRole
+      }
+      let param = new URLSearchParams();
+      param.append("auditType",auditType);
+      this.axios({
+        method: 'post',
+        url: 'informationaudit.do?FindInformationAuditCount',
+        data: param
+      }).then(res=>{
+         if(res.data.e == 0){
+           this.$store.commit('updateReviewinfoNum',res.data.o.auditNum)
+           this.$store.commit('updateReminderNum',res.data.o.remindNum)
+         }
+      })
+    }
+  },
+  watch: {//深度 watcher
+    initData2: {
+        handler: function (val, oldVal) { 
+            if (this.initData2==""||this.initData2==null||this.initData2.length == 0) {
+                console.log(123)
+                this.flag=false;
+            }else{
+                console.log(456)
+                this.flag=true;
+            }
+        },
+         deep: true
+        }
+    }
+}
+</script>
+

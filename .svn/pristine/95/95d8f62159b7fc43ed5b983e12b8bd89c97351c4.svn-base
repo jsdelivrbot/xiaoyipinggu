@@ -1,0 +1,667 @@
+<template>
+  <div>
+    <div class="bodys">
+        <div class="search">
+            用户名称：<input type="text" class="form-control" id="userName" v-model="userName">
+            用户单位：
+            <select name="" id="userUnits" class="form-control" v-model="userUnits">
+                <option value="" selected>全部</option>
+                <option  v-for="opt in UnitsAllType" v-bind:value="opt.unitId">
+                    {{opt.unitName}}
+                </option>
+            </select>
+            <button class="btn btn-primary" @click="initUserManage(userName,userUnits,1,10)">查询</button>
+            <button class="btn btn-warning" @click="addUser">添加</button>
+            <button class="btn btn-success" @click="modifyQuery">修改</button>
+            <button class="btn btn-danger" @click="deleteUser">删除</button>
+            <button class="btn btn-info" @click="initUserManage(userName,userUnits,1,10)">刷新</button>
+        </div>
+        <table id="userTable" class="table table-responsive">
+            <thead>
+            <tr>
+                <th></th>
+                <th>编号</th>
+                <th>真实姓名</th>
+                <th>用户单位</th>
+                <th>微信账号</th>
+                <th>手机号码</th>
+                <th>创建时间</th>
+                <th>用户类型</th>
+                <th>关注状态</th>
+                <th>二维码</th>
+                <th v-if="userType=='管理员'">操作</th>
+            </tr>
+            </thead>
+            <col style="width:4%"/>
+            <col style="width:5%"/>
+            <col style="width:10.11%"/>
+            <col style="width:10.11%"/>
+            <col style="width:10.11%"/>
+            <col style="width:10.11%"/>
+            <col style="width:10.11%"/>
+            <col style="width:10.11%"/>
+            <col style="width:10.11%"/>
+            <col style="width:10.11%"/>
+            <col style="width:10.11%" v-if="userType=='管理员'"/>
+            <tbody>
+                <tr v-for="(item,index) in initData"  v-show="!noDataIsShow">
+                    <td><input type="radio" name="userManage" :value="item.userId" v-model="userId"></td>
+                    <td>{{index + 1}}</td>
+                    <td :title="item.realName">{{item.realName}}</td>
+                    <td :title="item.unitName">{{item.unitName}}</td>
+                    <td :title="item.weChatAccount">{{item.weChatAccount}}</td>
+                    <td :title="item.phoneNumber">{{item.phoneNumber}}</td>
+                    <td :title="item.createDate">{{item.createDate}}</td>
+                    <td :title="item.roleName">{{item.roleName}}</td>
+                    <td class="color1" v-if="item.state =='未关注'" :title="item.state">{{item.state}}</td>
+                    <td class="color3" v-else :title="item.state">{{item.state}}</td>
+                    <td @click="showQRCode('http://39.106.170.67'+item.QRCode);"><img v-bind:src="'http://39.106.170.67'+item.QRCode" alt="" style="width:40px;"></td>
+                    <td v-if="item.roleId == 2 && userType=='管理员'">
+                        <button class="btn btn-info" @click="user_powerShow(item.userId)">权限分配</button> 
+                    </td>
+                </tr>
+                <tr v-show="noDataIsShow">
+                  <td colspan='9'>{{noData}}</td>
+              </tr>
+            </tbody>
+        </table>
+        <v-page :setting="pageSet" @page-change="pageChange"></v-page>
+        <!-- 添加用户 -->
+        <div class="bg_box" v-show="isAddShow">
+            <div id="add_user" class="add_model">
+                <div class="add_title">添加用户
+                    <span class="glyphicon glyphicon-remove add_model_close"
+                        @click="isAddShow = false"></span>
+                </div>
+                <div class="add_con">
+                    <div class="add_model_con_row">
+                        <span>用户类型：</span>
+                        <select name="" id="addRoleId" v-model="addRoleId" @change="addUnitSelect()">
+                            <option  v-for="opt in roleType" v-bind:value="opt.roleId">
+                                {{opt.roleName}}
+                            </option>   
+                        </select> 
+                        <span class="red">*</span>
+                    </div>
+                    <div class="add_model_con_row">
+                        <span>用户单位：</span>
+                        <select name="" id="addUserUnits">
+                            <option v-for="opt in addUnitsType" v-bind:value="opt.unitId">
+                                {{opt.unitName}}
+                            </option>  
+                        </select> 
+                        <span class="red">*</span>
+                    </div>
+                    <div class="add_model_con_row">
+                        <span>真实姓名：</span>
+                        <input type="text"  name="" id="addRealName" @blur="realNameReg"> 
+                        <span class="red">*</span>
+                        <span class="tips tipAddRealName red"></span>
+                    </div>
+                    <div class="add_model_con_row" v-if="addRoleId == 2">
+                        <span>用户密码：</span>
+                        <input type="text"  name="" id="addPassword" @blur="pwdReg"> 
+                        <span class="tips tipPwd red"></span>
+                    </div>
+                    <div class="add_model_con_row">
+                        <span>手机号码：</span>
+                        <input type="text"  name="" id="addPhoneNumber" @blur="phoneReg"> 
+                        <span class="tips tipPhone red"></span>
+                    </div>
+                    <div class="add_model_con_row">
+                        <span>微信账号：</span>
+                        <input type="text"  name="" id="addWeChatAccount"> 
+                        <span class="red">*</span>
+                    </div>
+                    <div class="add_model_con_row">
+                        <span>微信昵称：</span>
+                        <input type="text"  name="" id="addNickName"> 
+                    </div>
+                    <div class="add_model_btns">
+                        <button class="btn btn-primary" @click="saveUser">确定</button>&nbsp;
+                        <button class="btn btn-danger" @click="isAddShow = false">取消</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- 修改用户 -->
+        <div class="bg_box" v-show="isModifyShow">
+            <div id="modify_user" class="add_model">
+                <div class="add_title">修改用户
+                    <span class="glyphicon glyphicon-remove add_model_close"
+                        @click="isModifyShow = false"></span>
+                </div>
+                <div class="add_con">
+                    <div class="add_model_con_row">
+                        <span>真实姓名：</span>
+                        <input type="text"  name="" id="modifyRealName"> 
+                    </div>
+                    <div class="add_model_con_row">
+                        <span>手机号码：</span>
+                        <input type="text"  name="" id="modifyPhoneNumber"> 
+                    </div>
+                    <div class="add_model_con_row">
+                        <span>用户单位：</span>
+                        <select name="" id="modifyUserUnits">
+                            <option  v-for="option in modifyUnitsType" v-bind:value="option.unitId">
+                                {{option.unitName}}
+                            </option>  
+                        </select> 
+                    </div>
+                    <div class="add_model_btns">
+                        <button class="btn btn-primary" @click="modifySure">确定</button>&nbsp;
+                        <button class="btn btn-danger" @click="isModifyShow = false">取消</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 权限分配 角色授权 -->
+        <div class="bg_box" v-show="isShow">
+            <div class="add_model" style="width: 360px;height: 260px;">
+                <div class="add_title">权限分配
+                    <span class="glyphicon glyphicon-remove add_model_close"
+                        @click="isShow = false"></span>
+                </div>
+                <div class="add_con">
+                    <!-- <Ztree></Ztree> -->
+                    <ul>
+                        <li v-for="item in rootType" style="margin: 20px 0 0 40px;">
+                            <input type="checkbox" :value="item.menuId" v-model="menuId">
+                            {{item.menuName}}
+                        </li>
+                    </ul>
+                    <div style="margin-top: 20px;text-align: center;">
+                        <button class="btn btn-info" @click="user_powerModify">确定</button>
+                        &nbsp;&nbsp;&nbsp;
+                        <button class="btn btn-danger" @click="user_powerHide">取消</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="quickMark" class="popup-img" v-show="isBigImgShow" @click="isBigImgShow=false">
+        <img id="bigQRCode" src="" alt="二维码大图"/>
+    </div>
+  </div>
+</template>
+<script>
+import Ztree from '../views/Ztree'
+export default {
+    data(){
+        return {
+            isShow: false,
+            noDataIsShow:false,
+            noData:'',
+            isAddShow:false,
+            isModifyShow:false,
+            isBigImgShow:false,
+            pageSet: {
+                totalRow: '',//required option
+                language: 'cn',//default: 'cn'
+                pageSizeMenu: false,//default: [10, 20, 50, 100]
+                info: false,
+                align: 'center'
+            },
+            page: "",// 分页 页码
+            rows: "",//分页 一页显示数据
+            initData: [],
+            userName:'',
+            userUnits:'',
+            roleType:[],
+            UnitsAllType:[],
+            userId:[],
+            rootType:[],
+            rootId:[],
+            menuId:[],
+            addRoleId:"2",
+            addUnitsType:[{'unitId': 1,"unitName": '气象局'}],
+            modifyUnitsType:[]
+        }
+    },
+    mounted(){
+        this.roleTypeLoad()
+        this.UnitsTypeLoad()
+        this.rootTypeLoad()
+    },
+    methods: {
+        pageChange(pInfo){
+            this.page = pInfo.pageNumber
+            this.rows = pInfo.pageSize
+            this.initUserManage(this.userName,this.userUnits,this.page,this.rows)
+        },
+        initUserManage(userName,userUnits,page,rows){
+            this.userName = $('#userName').val();
+            this.userUnits = $('#userUnits').val();
+            let param = new URLSearchParams()
+            param.append('UserName', this.userName)
+            param.append('UserUnits', this.userUnits)
+            param.append('page',page)
+            param.append('rows',rows)
+            this.axios({
+                method: 'post',
+                url: 'UserManagement.do?FindUserInfo',
+                data: param,
+            }).then(res=>{
+                if(res.data.e == 0){
+                    this.noData = "无数据"
+                    this.noDataIsShow = true
+                }else {
+                    this.pageSet.totalRow = res.data.n
+                    for(var i=0;i<res.data.o.length;i++){
+                        if(res.data.o[i].state == 0){
+                            res.data.o[i].state = "未关注"
+                        }else if(res.data.o[i].state == 1){
+                            res.data.o[i].state = "已关注"
+                        }
+                    }
+                    this.initData = res.data.o
+                    this.noDataIsShow = false
+                }
+            })
+        },
+        addUser(){
+            this.isAddShow = true
+            $("#addRealName").val('');
+            $("#addPassword").val('');
+            $("#addPhoneNumber").val('');
+            $("#addWeChatAccount").val('');
+            $("#addNickName").val('');
+            $(".tipAddRealName").text('').hide();
+            $(".tipPhone").show(); 
+            $(".tipPwd").hide().text('');
+        },
+        UnitsTypeLoad(){
+            this.axios.get('UserManagement.do?gainUnit').then(res=>{
+                console.log(res.data.o)
+                if(res.data.e == 0){
+                    this.UnitsAllType = res.data.o
+                }
+            })
+        },
+        roleTypeLoad(){
+            this.axios.get('UserManagement.do?gainRole').then(res=>{
+                console.log(res.data.o)
+                if(res.data.e == 0){
+                    this.roleType = res.data.o
+                }
+            })
+        },
+        addUnitSelect(){
+            if(this.addRoleId == 3){   //行业用户
+                this.axios.get('UserManagement.do?gainUnits').then(res=>{
+                    console.log(res.data.o);
+                    if(res.data.e == 0){
+                        this.addUnitsType = res.data.o
+                    }
+                })
+            }else{    //值班员
+                this.addUnitsType = [{'unitId': 1,"unitName": '气象局'}]
+            }
+        },
+        pwdReg(){
+            var pwdValue = $('#addPassword').val();
+            console.log(pwdValue);
+            var reg = /^[0-9a-zA-Z]{6,16}$/;
+            console.log(!reg.test(pwdValue));
+            if(reg.test(pwdValue)){   //验证通过
+                $(".tipPwd").hide().text('');
+                return true;
+            }
+            if(!reg.test(pwdValue)){   //验证未通过
+                $(".tipPwd").show();
+                $(".tipPwd").text("密码由6-16位字母或数字组成");
+                return false;
+            }
+            
+        },
+        realNameReg(){
+            var rnameValue = $('#addRealName').val();
+            console.log(rnameValue);
+            var reg = /^[u4E00-u9FA5]{2,6}$/;
+            console.log(!reg.test(rnameValue));
+            if(reg.test(rnameValue)){   //验证通过
+                $(".tipAddRealName").text('').hide();
+                return true;
+            }
+            if(!reg.test(rnameValue)){   //验证未通过
+                $(".tipAddRealName").show().text("请输入2-6位中文");
+                return false;
+            }
+        },
+        phoneReg(){
+            var phoneValue = $('#addPhoneNumber').val();
+            console.log(phoneValue);
+            var reg =  /^1\d{10}$/;
+            console.log(!reg.test(phoneValue));
+            if(reg.test(phoneValue)){   //验证通过
+                $(".tipPhone").hide().text('');
+                return true;
+            }
+            if(!reg.test(phoneValue)){   //验证未通过
+                $(".tipPhone").show();
+                $(".tipPhone").text("请输入正确手机格式");
+                return false;
+            }
+        },
+        saveUser(){
+            var addRealName = $('#addRealName').val();
+            var addPassword = $('#addPassword').val();
+            var addNickName = $('#addNickName').val();
+            var addUserUnits = $('#addUserUnits').val();
+            var addPhoneNumber = $('#addPhoneNumber').val();
+            var addWeChatAccount = $('#addWeChatAccount').val();
+            // if(!this.pwdReg() || !this.realNameReg() || !this.phoneReg()){
+            //     this.$dialog.alert("请按照提示填写信息")
+            //     return;
+            // }
+            if(addUserUnits == '' || addRealName == '' || addWeChatAccount == ''){
+                this.$dialog.alert("*为必填项，请输入完整信息")
+            }else{
+                let param = new URLSearchParams()
+                param.append('roleId', this.addRoleId)
+                param.append('realName', addRealName)
+                param.append('password', addPassword)
+                param.append('nickName', addNickName)
+                param.append('userUnits', addUserUnits)
+                param.append('phoneNumber', addPhoneNumber)
+                param.append('weChatAccount', addWeChatAccount)
+                this.axios({
+                    method: 'post',
+                    url: 'UserManagement.do?SaveUserInfo',
+                    data: param,
+                }).then(res=>{
+                    if(res.data.e == 0){
+                        this.$dialog.alert("用户账号已存在")
+                    }else if(res.data.e == 1){
+                        this.$dialog.alert("微信账号已存在")
+                    }else if(res.data.e == 2){
+                        this.$dialog.alert("添加成功")
+                        this.isAddShow = false
+                        this.initUserManage(this.userName,this.userUnits,this.page,this.rows)
+                    }else if(res.data.e == 3){
+                        this.$dialog.alert("添加失败")
+                    }else if(res.data.e == 4){
+                        var that = this;
+                        this.$dialog.confirm('是否按现有参数恢复已删除用户？')
+                            .then(function(){   // 点击确定执行
+                                let param = new URLSearchParams()
+                                param.append('userId', res.data.o)
+                                param.append('roleId', that.addRoleId)
+                                param.append('realName', addRealName)
+                                param.append('password', addPassword)
+                                param.append('nickName', addNickName)
+                                param.append('userUnits', addUserUnits)
+                                param.append('phoneNumber', addPhoneNumber)
+                                param.append('weChatAccount', addWeChatAccount)
+                                that.axios({
+                                    method: 'post',
+                                    url: 'UserManagement.do?SaveUserInfos',
+                                    data: param,
+                                }).then(res2=>{
+                                    if(res2.data.e == 1){
+                                        that.$dialog.alert('恢复成功');
+                                        that.isAddShow = false
+                                        that.initUserManage(that.userName,that.userUnits,that.page,that.rows)
+                                    }else if(res2.data.e == 2){
+                                        that.$dialog.alert('用户恢复失败');
+                                        that.isAddShow = false
+                                    }
+                                })
+                            })
+                            .catch(function(){   //点击取消执行
+                                that.isAddShow = false
+                            })
+                    }
+                })
+            }
+        },
+        modifyQuery(){
+            if($("#userTable tr td input").length == 0){
+                this.$dialog.alert("当前页面暂无数据")
+            }else if($("#userTable tr td input:checked").length == 0){
+				this.$dialog.alert("请选择一条数据")
+			}else {
+                let param = new URLSearchParams()
+                param.append('ID', this.userId)
+                this.axios({
+                    method: 'post',
+                    url: 'UserManagement.do?UpdateSelectedUserInfo',
+                    data: param,
+                }).then(res=>{
+                    console.log(res.data.o)
+                    if(res.data.e == 0){
+                        if(res.data.o[0].roleId == 3){   //行业用户
+                            this.axios.get('UserManagement.do?gainUnits').then(res2=>{
+                                console.log(res2.data.o);
+                                if(res2.data.e == 0){
+                                    this.modifyUnitsType = res2.data.o
+                                }
+                            })
+                        }else{    //值班员
+                            this.modifyUnitsType = [{'unitId': 1,"unitName": '气象局'}]
+                        }
+                        this.isModifyShow = true
+                        $('#modifyRealName').val(res.data.o[0].realName)
+                        $('#modifyPhoneNumber').val(res.data.o[0].phoneNumber)
+                        $('#modifyUserUnits').val(res.data.o[0].userUnits)
+                    }else if(res.data.e == 1){
+                        this.$dialog.alert("用户ID为空")
+                    }else if(res.data.e == 4){
+                        this.$dialog.alert("该用户ID不存在")
+                    }
+                })
+            }
+        },
+        modifySure(){
+            var modifyRealName = $('#modifyRealName').val()
+            var modifyPhoneNumber = $('#modifyPhoneNumber').val()
+            var modifyUserUnits = $('#modifyUserUnits').val()
+            let param = new URLSearchParams()
+            param.append('ID', this.userId)
+            param.append('realName', modifyRealName)
+            param.append('phoneNumber', modifyPhoneNumber)
+            param.append('userUnits', modifyUserUnits)
+            this.axios({
+                method: 'post',
+                url: 'UserManagement.do?UpdateUserInfo',
+                data: param,
+            }).then(res=>{
+                console.log(res);
+                console.log(res.data.e);
+                if(res.data.e == 1){
+                    this.isModifyShow = false
+                    this.$dialog.alert("修改成功")
+                    this.initUserManage(this.userName,this.userUnits,this.page,this.rows)
+                }else if(res.data.e == 0){
+                    this.$dialog.alert("修改失败,用户名已存在不可进行修改")
+                }else if(res.data.e == 2){
+                    this.$dialog.alert("真实姓名不可为空")
+                }
+            })
+        },
+        deleteUser(){
+            if($("#userTable tr td input").length == 0){
+                this.$dialog.alert("当前页面暂无数据")
+            }else if($("#userTable tr td input:checked").length == 0){
+				this.$dialog.alert("请选择一条数据")
+			}else {
+                var that = this;
+                this.$dialog.confirm('确定删除当前用户吗？')
+                    .then(function () {  // 点击确定执行
+                        let param = new URLSearchParams()
+                        param.append('ID', that.userId)
+                        that.axios({
+                            method: 'post',
+                            url: 'UserManagement.do?DeletedUserInfo',
+                            data: param,
+                        }).then(res=>{
+                            console.log(res.data)
+                            if(res.data.e == 1){
+                                that.$dialog.alert("删除成功")
+                                that.initUserManage(that.userName,that.userUnits,that.page,that.rows)
+                                that.userId = [];
+                            }else{
+                                that.$dialog.alert("删除失败")
+                            }
+                        })
+                    }).catch(function () { 
+                        // 点击取消执行
+                    });
+            }
+        },
+        rootTypeLoad(){
+            this.axios.get('UserManagement.do?SelectedRoot').then(res=>{
+                console.log(res.data.o)
+                if(res.data.e == 0){
+                    this.rootType = res.data.o
+                }
+            })
+        },
+        user_powerShow(uid){
+            this.userId = uid
+            this.isShow = true;
+            let param = new URLSearchParams()
+            param.append('ID', this.userId)
+            this.axios({
+                method: 'post',
+                url: 'UserManagement.do?SelectedUserRoot',
+                data: param,
+            }).then(res=>{
+                if(res.data.e == 0){
+                    console.log("该用户没有设置过权限");
+                }else if(res.data.e == 1){
+                    this.menuId = res.data.o[0].menuId.split(',');
+                }
+            })
+        },
+        user_powerModify(){
+            let param = new URLSearchParams()
+            param.append('ID', this.userId)
+            param.append('menuID', this.menuId.join(','))
+            this.axios({
+                method: 'post',
+                url: 'UserManagement.do?permissionUserInfo',
+                data: param,
+            }).then(res=>{
+                if(res.data.e == 0){
+                    this.$dialog.alert("权限设置失败")
+                }else if(res.data.e == 1){
+                    this.$dialog.alert("权限设置成功")
+                }
+            })
+            this.isShow = false;
+        },
+        user_powerHide(){
+            this.isShow = false;
+        },
+        showQRCode(data){
+            console.log(this.userType);
+            
+            $("#bigQRCode").attr('src',data);
+            this.isBigImgShow=!this.isBigImgShow;
+        }
+    },
+    computed:{
+        userType(){
+            return this.$store.state.userType
+        }
+    }
+    
+}
+</script>
+<style scoped>
+    #user_power{
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+    }
+    .user_power_box{
+        width: 35%;
+        height: 80%;
+        overflow: auto;
+        margin: 70px auto;
+        background: #F4F4F4;
+        padding: 10px 10%;
+    }
+    #add_user,#modify_user{ width: 500px; }
+    .add_model_con_row{
+        padding: 7px 0;
+        font-size: 12px;
+    }
+    .add_question_ul{
+        margin: 0 auto;
+        width: 70%;
+    }
+    .add_question_ul li span{
+        display: inline-block;
+        width: 55px;
+        text-align: right;
+    }
+    .add_question_ul li input{
+        width: 230px;
+    }
+    .add_model{
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%,-50%);
+        border: 2px solid #3967AE;
+        border-radius: 5px;
+        background: #fff;
+    }
+    .add_title{
+        color: #3967AE;
+        background: #F8F8FA;
+        padding: 10px 15px;
+    }
+    .add_model_close{
+        float: right;
+        font-size: 18px;
+        cursor: pointer;
+    }
+    .add_con{
+        padding: 15px;
+    }
+    .add_model input,.add_model select{
+        border: 1px solid #B5B5B5;
+        border-radius: 3px;
+        padding: 3px 10px;
+    }
+    .add_model_con_row{
+        padding: 7px 0;
+        font-size: 12px;
+    }
+    .add_model_btns{
+        text-align: center;
+        padding-top: 15px;
+    }
+    .red{
+        color:#f00;
+    }
+    .tips{
+        display: none;
+    }
+    .popup-img{
+        position: absolute;
+        /* left: 35%; */
+        /* top: 35%; */
+        width: 100%;
+        height: 100%;
+        top: 0;
+        background: rgba(0, 0, 0, 0.8);
+    }
+    .popup-img img{
+        position: absolute;
+        width: 400px;
+        height: 400px;
+        left: 50%;
+        top: 50%;
+        margin-left: -200px;
+        margin-top: -200px;
+        background-size: 100% 100%;
+    }
+</style>

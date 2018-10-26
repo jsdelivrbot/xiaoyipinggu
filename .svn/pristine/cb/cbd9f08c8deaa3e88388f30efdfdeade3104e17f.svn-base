@@ -1,0 +1,883 @@
+<template>
+  <div class="bodys">
+        <div class="search">
+            题目名称：<input type="text" id="questionName" />
+            题目类型：
+            <select id="questionType">
+                <option value="">全部</option>
+                <option value="单选">单选题</option>
+                <option value="多选">多选题</option>
+                <option value="填空">填空题</option>
+            </select>
+            <button class="btn btn-primary" @click="inquire(questionName,questionType,1,10)">查询</button>
+            <button class="btn btn-warning" @click="problemShow">添加</button>
+            <button class="btn btn-success" @click="modifyShow">修改</button>
+            <button class="btn btn-danger" @click="deleteFn">删除</button>
+        </div>
+        <table id="result_table" class="table table-responsive">
+            <thead>
+            <tr>
+                <th></th>
+                <th>编号</th>
+                <th>题目名称</th>
+                <th>题目类型</th>
+                <th>
+                    使用次数
+                    <img src="../../static/sanjiao_top.png" class="sanjiao_top" @click="usageCountLifting(0)" alt="">
+                    <img src="../../static/sanjiao_bottom.png" class="sanjiao_bottom" @click="usageCountLifting(1)" alt="">
+                </th>
+                <th>最后使用问卷类型</th>
+                <th>
+                    最后使用时间
+                    <img src="../../static/sanjiao_top.png" class="sanjiao_top" @click="lastTimeLifting(0)" alt="">
+                    <img src="../../static/sanjiao_bottom.png" class="sanjiao_bottom" @click="lastTimeLifting(1)" alt="">
+                </th>
+                <th>
+                    创建时间
+                    <img src="../../static/sanjiao_top.png" class="sanjiao_top" @click="createDateLifting(0)" alt="">
+                    <img src="../../static/sanjiao_bottom.png" class="sanjiao_bottom" @click="createDateLifting(1)" alt="">
+                </th>
+            </tr>
+            </thead>
+            <col style="width:4%"/>
+            <col style="width:5%"/>
+            <col style="width:20%"/>
+            <col style="width:10%"/>
+            <col style="width:10%"/>
+            <col style="width:18%"/>
+            <col style="width:16.5%"/>
+            <col style="width:16.5%"/>
+            <tbody>
+            <tr v-for="(item,index) in initData" v-show="!noDataIsShow">
+                <td><input type="radio" name="quetionManage" :value="item.questionId" v-model="questionId"></td>
+                <td>{{index + 1}}</td>
+                <td :title="item.questionName">{{item.questionName}}</td>
+                <td :title="item.questionType">{{item.questionType}}</td>
+                <td :title="item.usageCount" :id="item.questionId">{{item.usageCount}}</td>
+                <td :title="item.typeId">{{item.typeId}}</td>
+                <td :title="item.recentUseTime">{{item.recentUseTime}}</td>
+                <td :title="item.createDate">{{item.createDate}}</td>
+            </tr>
+            <tr v-show="noDataIsShow">
+                <td colspan="8">{{noData}}</td>
+            </tr>
+            </tbody>
+        </table>
+        <v-page :setting="pageSet" @page-change="pageChange"></v-page>
+        <!-- 添加问题 -->
+        <div class="bg_box" v-show="isShow">
+            <div id="add_question" class="add_model">
+                <div class="add_title">添加题目
+                    <span class="glyphicon glyphicon-remove add_model_close"
+                        @click="isShow = false"></span>
+                </div>
+                <div class="add_con">
+                    <div class="add_model_con_row">
+                        <span>选择题型：</span>
+                        <input type="radio" checked=true name="name" id="name1" value="单选" @click="add_question_ul" v-model="radioVal"> 
+                        <label for="name1" @click="add_question_ul">单选</label>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                        <input type="radio" name="name" id="name2" value="多选" @click="add_question_ul" v-model="radioVal">
+                        <label for="name2" @click="add_question_ul">多选</label>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                        <input type="radio" name="name" id="name3" value="填空" @click="fill_inthe_blank" v-model="radioVal">
+                        <label for="name3" @click="fill_inthe_blank">填空</label>
+                    </div>
+                    <ul class="add_question_ul add_single_ul" v-if="radioVal == '单选'">
+                        <li class="add_model_con_row"><span>题目：</span><input type="text" id="topic"></li>
+                        <li class="add_model_con_row"><span>A选项：</span><input type="text" id="A" value="满意"></li>
+                        <li class="add_model_con_row"><span>B选项：</span><input type="text" id="B" value="比较满意"></li>
+                        <li class="add_model_con_row"><span>C选项：</span><input type="text" id="C" value="一般"></li>
+                        <li class="add_model_con_row"><span>D选项：</span><input type="text" id="D" value="不满意"></li>
+                        <li class="add_model_con_row"><span>E选项：</span><input type="text" id="E" value="说不清"></li>
+                    </ul>
+                    <div style="max-height: 300px;overflow: auto;" v-else-if="radioVal == '多选'">
+                        <ul class="add_question_ul add_opt_ul">
+                            <li class="add_model_con_row"><span>题目：</span><input type="text" id="topic"></li>
+                            <li class="add_model_con_row"><span>A选项：</span><input type="text" id="A" value="满意"></li>
+                            <li class="add_model_con_row"><span>B选项：</span><input type="text" id="B" value="比较满意"></li>
+                            <li class="add_model_con_row"><span>C选项：</span><input type="text" id="C" value="一般"></li>
+                            <li class="add_model_con_row"><span>D选项：</span><input type="text" id="D" value="不满意"></li>
+                            <li class="add_model_con_row"><span>E选项：</span><input type="text" id="E" value="说不清"></li>
+                        </ul>
+                        <div style="display: inline-block;width: 50px;">
+                            <img src="../../static/circle-add.png" alt="" @click="addOpt">
+                            <img src="../../static/circle-minus.png" alt="" @click="minusOpt">
+                        </div>
+                    </div>
+                    
+                    <div class="fill_inthe_blank" v-else-if="fill_inthe_blank_isShow">
+                        <div>
+                            <span>题目:</span>
+                            <q id="fillintheblank1" style="outline: none;display:inline-block;width:270px;border-bottom: 1px solid #000;" contenteditable="true">
+                                <span class="mod_fillblank" data-nostyle="true" style="display: inline;">________</span>
+                                <!-- <input type="text" id="tiankong1" class="tiankong" contentEditable="false" onkeyup="value=value.replace(/[\d]/g,'') "onbeforepaste="clipboardData.setData('text',clipboardData.getData('text').replace(/[\d]/g,''))">
+                                <input type="text" class="hide tiankong" contentEditable="false" id="tiankong2" onkeyup="this.value=this.value.replace(/[^\-?\d.]/g,'') " onafterpaste="this.value=this.value.replace(/[^\-?\d.]/g,'') "> -->
+                            </q>
+                        </div>
+                        <div>
+                            <span>填空设置:</span>
+                            <!-- <select id="setUp1">
+                                <option value="txt">文本</option>
+                                <option value="num">整数</option>
+                                <option value="double">小数</option>
+                            </select> -->
+                            <input type="radio" name="blankType" value="txt"> 文本
+                            <input type="radio" name="blankType" value="num"> 整数
+                            <input type="radio" name="blankType" value="double"> 小数
+                        </div>
+                    </div>
+                    <div class="add_model_btns">
+                        <button class="btn btn-primary" @click="add">确定</button>&nbsp;
+                        <button class="btn btn-danger" @click="isShow = false">取消</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- 修改问题 -->
+        <div class="bg_box" v-show="isShow2">
+            <div id="add_question" class="add_model">
+                <div class="add_title">修改题目
+                    <span class="glyphicon glyphicon-remove add_model_close"
+                        @click="isShow2 = false"></span>
+                </div>
+                <div class="add_con">
+                    <div class="add_model_con_row">
+                        <span>选择题型：</span>
+                        <input type="radio" name="name2" id="name4" value="单选" @click="add_question_ul" v-model="radioVal2"> 
+                        <label for="name4" id="labelName4" @click="add_question_ul">单选</label>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                        <input type="radio" name="name2" id="name5" value="多选" @click="add_question_ul" v-model="radioVal2">
+                        <label for="name5" id="labelName5" @click="add_question_ul">多选</label>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                        <input type="radio" name="name2" id="name6" value="填空" @click="fill_inthe_blank" v-model="radioVal2">
+                        <label for="name6" id="labelName6" @click="fill_inthe_blank">填空</label>
+                    </div>
+                    <ul class="add_question_ul modify_question_ul" v-show="add_question_ul_isShow">
+                        <li class="add_model_con_row"><span>题目：</span><input type="text" id="topic2"></li>
+                        <li class="add_model_con_row"><span>A选项：</span><input type="text" id="A2" data="A"></li>
+                        <li class="add_model_con_row"><span>B选项：</span><input type="text" id="B2" data="B"></li>
+                        <li class="add_model_con_row"><span>C选项：</span><input type="text" id="C2" data="C"></li>
+                        <li class="add_model_con_row"><span>D选项：</span><input type="text" id="D2" data="D"></li>
+                        <li class="add_model_con_row"><span>E选项：</span><input type="text" id="E2" data="E"></li>
+                    </ul>
+                    <div class="fill_inthe_blank" v-show="fill_inthe_blank_isShow">
+                        <div>
+                            <span>题目:</span>
+                            <q id="fillintheblank2" style="outline: none;display:inline-block;width:270px;border-bottom: 1px solid #000;" contenteditable="true">
+                                <!-- <input type="text" class="tiankong" id="tiankong3" contentEditable="false" onkeyup="value=value.replace(/[\d]/g,'') "onbeforepaste="clipboardData.setData('text',clipboardData.getData('text').replace(/[\d]/g,''))">
+                                <input type="text" class="hide tiankong" id="tiankong4" contentEditable="false"  onkeyup="this.value=this.value.replace(/[^\-?\d.]/g,'') " onafterpaste="this.value=this.value.replace(/[^\-?\d.]/g,'') "> -->
+                                <span class="mod_fillblank" data-nostyle="true" style="display: inline;">________</span>
+                            </q>
+                        </div>
+                        <div>
+                            <span>填空设置:</span>
+                            <select id="setUp2">
+                                <option value="txt">文本</option>
+                                <option value="num">数字</option>
+                                <option value="double">小数点</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="add_model_btns">
+                        <button class="btn btn-primary" @click="modify">确定</button>&nbsp;
+                        <button class="btn btn-danger" @click="isShow2 = false">取消</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+<script>
+export default {
+    data(){
+        return {
+            isShow: false,//控制添加框显隐
+            isShow2: false,//控制修改框显隐
+            add_question_ul_isShow: true,//控制单选题、多选题显隐
+            fill_inthe_blank_isShow: false,//控制填空题显隐
+            noDataIsShow: false,
+            pageSet: {
+                totalRow: '1',//required option 分页总条数
+                language: 'cn',//default: 'cn'
+                pageSizeMenu: false,//default: [10, 20, 50, 100]
+                info: false,
+                align: 'center'
+            },
+            initData: [],//初始化数据
+            noData: "",//暂无数据
+            questionName: "",//查询-题目名称
+            questionType: "",//查询-题目类型
+            page: "",// 分页 页码
+            rows: "",//分页 一页显示数据
+            radioVal: "单选", //添加框 单选框 value
+            radioVal2: "单选",//修改框 单选框 value
+            questionId: []// 每条数据的id
+        }
+    },
+    methods: {
+        addOpt(){
+            var num = $(".add_opt_ul li").length-1;
+            console.log(num);
+            if(num<26){
+                var charCode = String.fromCharCode(65+num)
+                console.log(charCode);
+                $(".add_opt_ul").append("<li class='add_model_con_row' style='padding:7px 0;'><span style='display: inline-block;width: 58px;text-align: right;'>"
+                    +charCode+"选项：</span><input type='text' style='width: 230px;border: 1px solid #b5b5b5;border-radius: 3px;padding: 3px 10px;' id='"
+                    +charCode+"' value='' placeholder='请输入选项内容'></li>");
+            }
+            
+        },
+        minusOpt(){
+            var num = $(".add_opt_ul li").length-1;
+            console.log(num);
+            if(num>2){
+                $(".add_opt_ul").children("li:last-child").remove();
+            }
+        },
+        problemShow(){
+            //添加
+            this.isShow = true
+            $("#topic").val('');
+            $('#fillintheblank1').empty()
+            $('#fillintheblank1').append('<span class="mod_fillblank" data-nostyle="true" style="display: inline;">________</span>')
+        },
+        modifyShow(){
+            //修改
+            if($("#result_table tr td input").length == 0){
+                this.$dialog.alert("当前页面暂无数据")
+            }else if($("#result_table tr td input:checked").length == 0){
+				this.$dialog.alert("请选择一条数据")
+			}else {
+                if($('#'+this.questionId).text() != '0'){   //使用次数不为0，当前题目已被使用
+                    this.$dialog.alert("题目已被问卷使用，不能修改")
+                }else {
+                    this.isShow2 = true
+                    let param = new URLSearchParams()
+                    param.append('id', this.questionId)
+                    this.axios({
+                        method: 'post',
+                        url: 'questionBank.do?FindQuestionId',
+                        data: param,
+                    }).then(res=>{
+                        console.log(res.data.o)
+                        if(res.data.e == 0){
+                            var questionType = res.data.o[0].questionType
+                            console.log(questionType)
+                            if(questionType == "单选"){
+                                $('#name6,#labelName6').addClass('hide')
+                                $('#name4,#name5,labelName4,#labelName5').removeClass('hide')
+                                this.radioVal2 = "单选"
+                                $('#topic2').val(res.data.o[0].questionName)
+                                var answerOptionsValue = res.data.o[0].answerOptionsValue;
+                                var arr = answerOptionsValue.split(',')
+                                $('#A2').val(arr[0])
+                                $('#B2').val(arr[1])
+                                $('#C2').val(arr[2])
+                                $('#D2').val(arr[3])
+                                $('#E2').val(arr[4])
+                                this.add_question_ul_isShow = true
+                                this.fill_inthe_blank_isShow = false
+                            }else if(questionType == "多选"){
+                                $('#name6,#labelName6').addClass('hide')
+                                $('#name4,#name5,labelName4,#labelName5').removeClass('hide')
+                                this.radioVal2 = "多选"
+                                $('#topic2').val(res.data.o[0].questionName)
+                                var answerOptions = res.data.o[0].answerOptions.split(',');
+                                var answerOptionsValue = res.data.o[0].answerOptionsValue.split(',');
+                                // var arr = answerOptionsValue.split(',')
+                                // $('#A2').val(arr[0])
+                                // $('#B2').val(arr[1])
+                                // $('#C2').val(arr[2])
+                                // $('#D2').val(arr[3])
+                                // $('#E2').val(arr[4])
+                                var html = "<li class='add_model_con_row' style='padding: 7px 0;'>"
+                                    +"<span style='display: inline-block;width: 58px;text-align: right;'>题目：</span>"
+                                    +"<input type='text' id='topic2' style='width: 230px;border: 1px solid #b5b5b5;border-radius: 3px;padding: 3px 10px;'></li>";
+                                for(var i=0;i<answerOptions.length;i++){
+                                    html += "<li class='add_model_con_row' style='padding: 7px 0;'><span style='display: inline-block;width: 58px;text-align: right;'>"
+                                        +answerOptions[i]+"选项：</span><input type='text' style='width: 230px;border: 1px solid #b5b5b5;border-radius: 3px;padding: 3px 10px;' id='"
+                                        +answerOptions[i]+"2' data='"
+                                        +answerOptions[i]+"' value='"+answerOptionsValue[i]+"'></li>"
+                                }
+                                $('.modify_question_ul').html(html);
+                                this.add_question_ul_isShow = true
+                                this.fill_inthe_blank_isShow = false
+                            }else {
+                                $('#name4,#name5,#labelName4,#labelName5').addClass('hide')
+                                $('#name6,#labelName6').removeClass('hide')
+                                this.radioVal2 = "填空"
+                                $('#fillintheblank2').text(res.data.o[0].questionName)
+                                var answerOptionsValue = res.data.o[0].answerOptionsValue
+                                var fillingType = res.data.o[0].fillingType
+                                $('#setUp2').val(fillingType)
+                                this.add_question_ul_isShow = false
+                                this.fill_inthe_blank_isShow = true
+                            }
+                        }
+                    })
+                }
+            }
+        },
+        deleteFn(){
+            //删除
+            if($("#result_table tr td input").length == 0){
+                this.$dialog.alert("当前页面暂无数据")
+            }else if($("#result_table tr td input:checked").length == 0){
+				this.$dialog.alert("请选择一条数据")
+			}else {
+                let param = new URLSearchParams()
+                param.append('id', this.questionId)
+                param.append('usageCount',$("#"+this.questionId).text())
+                this.axios({
+                    method: 'post',
+                    url: 'questionBank.do?deleteQuestion',
+                    data: param,
+                }).then(res=>{
+                    if(res.data.e == 0){
+                        this.$dialog.alert("题目名称已被问卷使用，不能删除")
+                    }else if(res.data.e == 1){
+                         this.$dialog.alert("删除成功")
+                         this.inquire(this.questionName,this.questionType,this.page,this.rows)
+                         this.questionId = []
+                    }else {
+                        this.$dialog.alert("删除失败")
+                    }
+                })
+            }
+        },
+        add(){
+            //添加
+            if(this.radioVal == "单选"){
+                var questionName = $('#topic').val()
+                var questionType = this.radioVal
+                var answerOptions = ""
+                var answerOptionsValue = ""
+                var A = $('#A').attr('id');
+                var B = $('#B').attr('id');
+                var C = $('#C').attr('id');
+                var D = $('#D').attr('id');
+                var E = $('#E').attr('id');
+                answerOptions = A+','+B+','+C+','+D+','+E
+                var aVal = $('#A').val();
+                var bVal = $('#B').val();
+                var cVal = $('#C').val();
+                var dVal = $('#D').val();
+                var eVal = $('#E').val();
+                answerOptionsValue = aVal+','+bVal+','+cVal+','+dVal+','+eVal
+                if(questionName == ""){
+                    this.$dialog.alert("题目名称必须填写")
+                    return false
+                }
+                if(aVal == "" || bVal == "" || cVal == "" || dVal == "" || eVal == ""){
+                    this.$dialog.alert("题目答案必须填写")
+                    return false
+                }
+                let param = new URLSearchParams()
+                param.append('questionName', questionName)
+                param.append('questionType', questionType)
+                param.append('answerOptions',answerOptions)
+                param.append('answerOptionsValue',answerOptionsValue)
+                this.axios({
+                    method: 'post',
+                    url: 'questionBank.do?SaveQuestion',
+                    data: param,
+                }).then(res=>{
+                    if(res.data.e == 0){
+                        this.$dialog.alert("题目名称已存在")
+                    }else if(res.data.e == 1){
+                        this.$dialog.alert("添加成功")
+                        this.isShow = false
+                        this.inquire(questionName,this.radioVal,this.page,this.rows)
+                    }else {
+                        this.$dialog.alert("添加失败")
+                    }
+                })
+            }
+            if(this.radioVal == "多选"){
+                var questionName = $('#topic').val()
+                var questionType = this.radioVal
+                var answerOptions = ""
+                var answerOptionsValue = ""
+                // var A = $('#A').attr('id');
+                // var B = $('#B').attr('id');
+                // var C = $('#C').attr('id');
+                // var D = $('#D').attr('id');
+                // var E = $('#E').attr('id');
+                // answerOptions = A+','+B+','+C+','+D+','+E
+                for(var i=1;i<$('.add_opt_ul li input').length;i++){
+                    if(answerOptions == ''){
+                        answerOptions=$('.add_opt_ul li input')[1].id;
+                    }else{
+                        answerOptions+=','+$('.add_opt_ul li input')[i].id;
+                    }
+                }
+                // var aVal = $('#A').val();
+                // var bVal = $('#B').val();
+                // var cVal = $('#C').val();
+                // var dVal = $('#D').val();
+                // var eVal = $('#E').val();
+                // answerOptionsValue = aVal+','+bVal+','+cVal+','+dVal+','+eVal
+                for(var i=1;i<$('.add_opt_ul li input').length;i++){
+                    if(answerOptionsValue == ''){
+                        answerOptionsValue=$('.add_opt_ul li input')[1].value;
+                    }else{
+                        answerOptionsValue+=','+$('.add_opt_ul li input')[i].value;
+                    }
+                }
+                if(questionName == ""){
+                    this.$dialog.alert("题目名称必须填写")
+                    return false
+                }
+                if(aVal == "" || bVal == "" || cVal == "" || dVal == "" || eVal == ""){
+                    this.$dialog.alert("题目答案必须填写")
+                    return false
+                }
+                let param = new URLSearchParams()
+                param.append('questionName', questionName)
+                param.append('questionType', questionType)
+                param.append('answerOptions',answerOptions)
+                param.append('answerOptionsValue',answerOptionsValue)
+                this.axios({
+                    method: 'post',
+                    url: 'questionBank.do?SaveQuestion',
+                    data: param,
+                }).then(res=>{
+                    if(res.data.e == 0){
+                        this.$dialog.alert("题目名称已存在")
+                    }else if(res.data.e == 1){
+                        this.$dialog.alert("添加成功")
+                        this.isShow = false
+                        this.inquire(questionName,this.radioVal,this.page,this.rows)
+                    }else {
+                        this.$dialog.alert("添加失败")
+                    }
+                })
+            }
+            if(this.radioVal == "填空"){
+                var questionName = $('#fillintheblank1').text()
+                //var fillingType = $('#setUp1').val()
+                var fillingType = $("input[name='blankType']:checked").val();
+                if(questionName == ""){
+                    this.$dialog.alert("题目名称必须填写")
+                    return false
+                }
+                let param = new URLSearchParams()
+                param.append('questionName', questionName)
+                param.append('questionType', this.radioVal)
+                param.append('fillingType',fillingType)
+                this.axios({
+                    method: 'post',
+                    url: 'questionBank.do?SaveQuestion',
+                    data: param,
+                }).then(res=>{
+                    if(res.data.e == 0){
+                        this.$dialog.alert("题目名称已存在")
+                    }else if(res.data.e == 1){
+                        this.$dialog.alert("添加成功")
+                        this.isShow = false
+                        this.inquire(questionName,this.radioVal,this.page,this.rows)
+                    }else {
+                        this.$dialog.alert("添加失败")
+                    }
+                })
+            }
+        },
+        modify(){
+            if(this.radioVal2 == "单选"){
+                var questionName = $('#topic2').val()
+                var questionType = this.radioVal2
+                var answerOptions = ""
+                var answerOptionsValue = ""
+                var A = $('#A2').attr('data');
+                var B = $('#B2').attr('data');
+                var C = $('#C2').attr('data');
+                var D = $('#D2').attr('data');
+                var E = $('#E2').attr('data');
+                answerOptions = A+','+B+','+C+','+D+','+E
+                var aVal = $('#A2').val();
+                var bVal = $('#B2').val();
+                var cVal = $('#C2').val();
+                var dVal = $('#D2').val();
+                var eVal = $('#E2').val();
+                answerOptionsValue = aVal+','+bVal+','+cVal+','+dVal+','+eVal
+                if(questionName == ""){
+                    this.$dialog.alert("题目名称必须填写")
+                    return false
+                }
+                if(aVal == "" || bVal == "" || cVal == "" || dVal == "" || eVal == ""){
+                    this.$dialog.alert("题目答案必须填写")
+                    return false
+                }
+                let param = new URLSearchParams()
+                param.append('questionName', questionName)
+                param.append('questionType', questionType)
+                param.append('answerOptions',answerOptions)
+                param.append('answerOptionsValue',answerOptionsValue)
+                param.append('usageCount',$("#"+this.questionId).text())
+                param.append('id',this.questionId)
+                this.axios({
+                    method: 'post',
+                    url: 'questionBank.do?updateQuestion',
+                    data: param,
+                }).then(res=>{
+                    if(res.data.e == 0){
+                        this.$dialog.alert("题目名称已存在")
+                    }else if(res.data.e == 1){
+                        this.$dialog.alert("题目名称已被问卷使用")
+                    }else if(res.data.e == 2){
+                        this.$dialog.alert("修改成功")
+                        this.isShow2 = false
+                        this.inquire(questionName,this.radioVal2,this.page,this.rows)
+                    }else {
+                        this.$dialog.alert("修改失败")
+                    }
+                })
+            }
+            if(this.radioVal2 == "多选"){
+                var questionName = $('#topic2').val()
+                var questionType = this.radioVal2
+                var answerOptions = ""
+                var answerOptionsValue = ""
+                // var A = $('#A2').attr('data');
+                // var B = $('#B2').attr('data');
+                // var C = $('#C2').attr('data');
+                // var D = $('#D2').attr('data');
+                // var E = $('#E2').attr('data');
+                // answerOptions = A+','+B+','+C+','+D+','+E
+                for(var i=1;i<$('.modify_question_ul li input').length;i++){
+                    if(answerOptions == ''){
+                        answerOptions=$('.modify_question_ul li input')[1].id[0];
+                    }else{
+                        answerOptions+=','+$('.modify_question_ul li input')[i].id[0];
+                    }
+                }
+                // var aVal = $('#A2').val();
+                // var bVal = $('#B2').val();
+                // var cVal = $('#C2').val();
+                // var dVal = $('#D2').val();
+                // var eVal = $('#E2').val();
+                // answerOptionsValue = aVal+','+bVal+','+cVal+','+dVal+','+eVal
+
+                for(var i=1;i<$('.modify_question_ul li input').length;i++){
+                    if(answerOptionsValue == ''){
+                        answerOptionsValue=$('.modify_question_ul li input')[1].value;
+                    }else{
+                        answerOptionsValue+=','+$('.modify_question_ul li input')[i].value;
+                    }
+                }
+
+
+                if(questionName == ""){
+                    this.$dialog.alert("题目名称必须填写")
+                    return false
+                }
+                if(aVal == "" || bVal == "" || cVal == "" || dVal == "" || eVal == ""){
+                    this.$dialog.alert("题目答案必须填写")
+                    return false
+                }
+                let param = new URLSearchParams()
+                param.append('questionName', questionName)
+                param.append('questionType', questionType)
+                param.append('answerOptions',answerOptions)
+                param.append('answerOptionsValue',answerOptionsValue)
+                param.append('usageCount',$("#"+this.questionId).text())
+                param.append('id',this.questionId)
+                this.axios({
+                    method: 'post',
+                    url: 'questionBank.do?updateQuestion',
+                    data: param,
+                }).then(res=>{
+                    if(res.data.e == 0){
+                        this.$dialog.alert("题目名称已存在")
+                    }else if(res.data.e == 1){
+                        this.$dialog.alert("题目名称已被问卷使用")
+                    }else if(res.data.e == 2){
+                        this.$dialog.alert("修改成功")
+                        this.isShow2 = false
+                        this.inquire(questionName,this.radioVal2,this.page,this.rows)
+                    }else {
+                        this.$dialog.alert("修改失败")
+                    }
+                })
+            }
+            if(this.radioVal2 == "填空"){
+                var questionName = $('#fillintheblank2').text()
+                var fillingType = $('#setUp2').val()
+                if(questionName == ""){
+                    this.$dialog.alert("题目名称必须填写")
+                    return false
+                }
+                let param = new URLSearchParams()
+                param.append('questionName', questionName)
+                param.append('questionType', this.radioVal2)
+                param.append('fillingType',fillingType)
+                param.append('usageCount',$("#"+this.questionId).text())
+                param.append('id',this.questionId)
+                this.axios({
+                    method: 'post',
+                    url: 'questionBank.do?updateQuestion',
+                    data: param,
+                }).then(res=>{
+                    if(res.data.e == 0){
+                        this.$dialog.alert("题目名称已存在")
+                    }else if(res.data.e == 1){
+                        this.$dialog.alert("题目名称已被问卷使用")
+                    }else if(res.data.e == 2){
+                        this.$dialog.alert("修改成功")
+                        this.isShow2 = false
+                        this.inquire(questionName,this.radioVal2,this.page,this.rows)
+                    }else {
+                        this.$dialog.alert("修改失败")
+                    }
+                })
+            }
+        },
+        fill_inthe_blank(){
+            this.add_question_ul_isShow = false
+            this.fill_inthe_blank_isShow = true
+        },
+        add_question_ul(){
+            // this.add_question_ul_isShow = true
+            // this.fill_inthe_blank_isShow = false
+            //console.log(this.radioVal);
+            // if(this.radioVal == '单选'){
+            //     console.log('我来了');
+            //     $(".add_opt_ul").html("<li class='add_model_con_row' style='padding:7px 0;font-size:12px;'><span style='display: inline-block;width: 58px;text-align: right;'>题目：</span><input type='text' style='width: 230px;border: 1px solid #b5b5b5;border-radius: 3px;padding: 3px 10px;' id='topic'></li>"+
+            //         "<li class='add_model_con_row' style='padding:7px 0;font-size:12px;'><span style='display: inline-block;width: 58px;text-align: right;'>A选项：</span><input type='text' style='width: 230px;border: 1px solid #b5b5b5;border-radius: 3px;padding: 3px 10px;' id='A' value='满意'></li>"+
+            //         "<li class='add_model_con_row' style='padding:7px 0;font-size:12px;'><span style='display: inline-block;width: 58px;text-align: right;'>B选项：</span><input type='text' style='width: 230px;border: 1px solid #b5b5b5;border-radius: 3px;padding: 3px 10px;' id='B' value='比较满意'></li>"+
+            //         "<li class='add_model_con_row' style='padding:7px 0;font-size:12px;'><span style='display: inline-block;width: 58px;text-align: right;'>C选项：</span><input type='text' style='width: 230px;border: 1px solid #b5b5b5;border-radius: 3px;padding: 3px 10px;' id='C' value='一般'></li>"+
+            //         "<li class='add_model_con_row' style='padding:7px 0;font-size:12px;'><span style='display: inline-block;width: 58px;text-align: right;'>D选项：</span><input type='text' style='width: 230px;border: 1px solid #b5b5b5;border-radius: 3px;padding: 3px 10px;' id='D' value='不满意'></li>"+
+            //         "<li class='add_model_con_row' style='padding:7px 0;font-size:12px;'><span style='display: inline-block;width: 58px;text-align: right;'>E选项：</span><input type='text' style='width: 230px;border: 1px solid #b5b5b5;border-radius: 3px;padding: 3px 10px;' id='E' value='说不清'></li>")
+            // }
+        },
+        pageChange(pInfo){
+            //分页方法 pInfo{pageNumber: 1, pageSize: 10}
+            this.page = pInfo.pageNumber
+            this.rows = pInfo.pageSize
+            this.inquire(this.questionName,this.questionType,this.page,this.rows)
+        },
+        inquire(questionName,questionType,page,rows){
+            //查询方法 默认加载数据
+            this.questionName = $('#questionName').val();
+            this.questionType = $('#questionType').val();
+            let param = new URLSearchParams()
+            param.append('questionName', this.questionName)
+            param.append('questionType', this.questionType)
+            param.append('page',page)
+            param.append('rows',rows)
+            this.axios({
+                method: 'post',
+                url: 'questionBank.do?FindQuestion',
+                data: param,
+            }).then(res=>{
+                if(res.data.e == 0){
+                    this.pageSet.totalRow = res.data.n
+                    this.initData = res.data.o
+                    this.noDataIsShow = false
+                }else {
+                    this.pageSet.totalRow = 1
+                    this.noData = "暂无数据"
+                    this.noDataIsShow = true
+                }
+            })
+        },
+        usageCountLifting(numbers){
+            //使用次数升降序查询
+            if(numbers == 0){
+                let param = new URLSearchParams()
+                param.append('numbers', numbers)
+                param.append('page', this.page)
+                param.append('rows', this.rows)
+                this.axios({
+                    method: 'post',
+                    url: 'questionBank.do?findUsageCount',
+                    data: param,
+                }).then(res=>{
+                    if(res.data.e == 0){
+                       this.initData = res.data.o
+                    }
+                })
+            }else {
+                let param = new URLSearchParams()
+                param.append('numbers', numbers)
+                param.append('page', this.page)
+                param.append('rows', this.rows)
+                this.axios({
+                    method: 'post',
+                    url: 'questionBank.do?findUsageCount',
+                    data: param,
+                }).then(res=>{
+                    if(res.data.e == 0){
+                       this.initData = res.data.o
+                    }
+                })
+            }
+        },
+        lastTimeLifting(numbers){
+            //最后使用时间升降序
+            if(numbers == 0){
+                let param = new URLSearchParams()
+                param.append('numbers', numbers)
+                param.append('page', this.page)
+                param.append('rows', this.rows)
+                this.axios({
+                    method: 'post',
+                    url: 'questionBank.do?findRecentUseTime',
+                    data: param,
+                }).then(res=>{
+                    if(res.data.e == 0){
+                        this.initData = res.data.o
+                    }
+                })
+            }else {
+                let param = new URLSearchParams()
+                param.append('numbers', numbers)
+                param.append('page', this.page)
+                param.append('rows', this.rows)
+                this.axios({
+                    method: 'post',
+                    url: 'questionBank.do?findRecentUseTime',
+                    data: param,
+                }).then(res=>{
+                    if(res.data.e == 0){
+                        this.initData = res.data.o
+                    }
+                })
+            }
+        },
+        createDateLifting(numbers){
+            //创建时间升降序
+            if(numbers == 0){
+                let param = new URLSearchParams()
+
+                param.append('numbers', numbers)
+                param.append('page', this.page)
+                param.append('rows', this.rows)
+                this.axios({
+                    method: 'post',
+                    url: 'questionBank.do?findCreateDate',
+                    data: param,
+                }).then(res=>{
+                    if(res.data.e == 0){
+                        this.initData = res.data.o
+                    }
+                })
+            }else {
+                let param = new URLSearchParams()
+                param.append('numbers', numbers)
+                param.append('page', this.page)
+                param.append('rows', this.rows)
+                this.axios({
+                    method: 'post',
+                    url: 'questionBank.do?findCreateDate',
+                    data: param,
+                }).then(res=>{
+                    if(res.data.e == 0){
+                        this.initData = res.data.o
+                    }
+                })
+            }
+        }
+    }
+}
+</script>
+<style scoped>
+#add_question{ width: 500px; }
+.add_model_con_row{
+    padding: 7px 0;
+    font-size: 12px;
+}
+.add_question_ul{
+    /* margin: 0 auto; */
+    width: 70%;
+    display: inline-block;
+    margin-left: 50px;
+}
+.add_question_ul li span{
+    display: inline-block;
+    width: 58px;
+    text-align: right;
+}
+.add_question_ul li input{
+    width: 230px;
+}
+.add_model{
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%,-50%);
+    border: 2px solid #3967AE;
+    border-radius: 5px;
+    background: #fff;
+}
+.add_title{
+    color: #3967AE;
+    background: #F8F8FA;
+    padding: 10px 15px;
+}
+.add_model_close{
+    float: right;
+    font-size: 18px;
+    cursor: pointer;
+}
+.add_con{
+    padding: 15px;
+}
+.add_model input,.add_model select{
+    border: 1px solid #B5B5B5;
+    border-radius: 3px;
+    padding: 3px 10px;
+}
+.add_model_con_row{
+    padding: 7px 0;
+    font-size: 12px;
+}
+.add_model_btns{
+    text-align: center;
+    padding-top: 15px;
+}
+.fill_inthe_blank div span {
+    display: inline-block;
+    width: 100px;
+    text-align: right;
+}
+.fill_inthe_blank div {
+    margin: 10px 0;
+}
+.fill_inthe_blank div select {
+    width: 270px;
+}
+#result_table tr th {
+    position: relative;
+}
+#result_table tr th img {
+    width: 16px;
+    position: absolute;
+    cursor: pointer;
+    margin-left: 10px;
+}
+#result_table tr th img.sanjiao_top {
+    top: 12px;
+}
+#result_table tr th img.sanjiao_bottom {
+    top: 24px;
+}
+.fill_inthe_blank input.add_model_close {
+    border: none;
+    border-bottom: 1px dashed #000;
+    width: 100px;
+    outline: none;
+    margin: 0px 30px;
+    padding: 0 0 4px 0;
+}
+.fill_inthe_blank input.tiankong {
+    border: none;
+    border-bottom: 1px dashed #000;
+    width: 100px;
+    outline: none;
+    margin: 0px 30px;
+    padding: 0 0 4px 0;
+}
+</style>
+

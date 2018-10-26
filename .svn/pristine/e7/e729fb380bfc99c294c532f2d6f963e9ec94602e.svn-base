@@ -1,0 +1,497 @@
+<template>
+  <div style="height: calc(100% - 46px);background: rgb(242,242,242);">
+    <div class="bodys" v-show="isShow">
+        <div class="search">
+            类型：
+            <select name="" id="auditSelectType" class="form-control">
+                <option value="" selected>全部</option>
+               <!-- <option value="效益评估结果审核">效益评估结果审核</option>
+                <option value="反馈消息审核">反馈消息审核</option>
+                <option value="问卷审核">问卷审核</option> -->
+                <option :value="item.name" v-for="item in options">{{item.name}}</option>
+            </select>
+            &nbsp;&nbsp;&nbsp;&nbsp;
+            审核状态：
+            <select name="" id="" class="form-control" v-model="auditStatus">
+                <option value="" selected>全部</option>
+                <option value="待审核">待审核</option>
+                <option value="未通过">未通过</option>
+                <option value="通过">通过</option>
+            </select>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+            <button class="btn btn-primary" @click="initReview(auditSelectType,auditStatus,1,10)">查询</button>
+        </div>
+        <table id="" class="table table-responsive">
+            <thead>
+            <tr>
+                <th>审核内容</th>
+                <th>类型</th>
+                <th>提交人</th>
+                <th>提交审核时间</th>
+                <th>审核时间</th>
+                <th>审核状态</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr v-for="item in initData" v-show="!noDataShow">
+                <td :title="item.auditContent">{{item.auditContent}}</td>
+                <td :title="item.types">{{item.types}}</td>
+                <td :title="item.submitter">{{item.submitter}}</td>
+                <td :title="item.submitAuditTime">{{item.submitAuditTime}}</td>
+                <td :title="item.auditTime">{{item.auditTime}}</td>
+                <td class="red" v-if="item.auditStatus == '未通过'"><a href="#" @click="daiShenHe(item.types,item.auditContent,item.auditId,item.submitter,item.submitAuditTime,item.auditStatus)">{{item.auditStatus}}</a></td>
+                <td class="yellow" v-else-if="item.auditStatus == '待审核'"><a href="#" @click="daiShenHe(item.types,item.auditContent,item.auditId,item.submitter,item.submitAuditTime,item.auditStatus)">{{item.auditStatus}}</a></td>
+                <td class="green" v-else><a href="#" @click="daiShenHe(item.types,item.auditContent,item.auditId,item.submitter,item.submitAuditTime,item.auditStatus)">{{item.auditStatus}}</a></td>
+            </tr>
+            <tr v-show="noDataShow">
+                <td colspan="6">暂无数据</td>
+            </tr>
+            </tbody>
+        </table>
+        <v-page :setting="pageSet" @page-change="pageChange"></v-page>
+    </div>
+    <div class="bodys" style="border: none;" v-show="isShow2">
+        <div class="left_content">
+            <div class="content1">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>编号</th>
+                            <th v-for="(item,index) in resultReviewTh">{{item}}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(item,index) in resultReview">
+                            <td>{{index + 1}}</td>
+                            <td>{{item.respondentName}}</td>
+                            <td v-for="item2 in item.answer">{{item2}}</td>
+                        </tr>
+                        <tr>
+                            <td colspan="2">总计</td>
+                            <td v-for="item in zongji">{{item}}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="content2 hide">
+                <div v-for="(item,index) in auditConData">
+                    <div>{{index+1}}. {{item.questionName}}</div>
+                    <ul class="auditAnswerUl">
+                        <li v-for="item2 in item.data">{{item2.answerOptions}}.{{item2.answerOptionsValue}}</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="content3 hide">
+                <div>
+                    {{submitter}}:{{feedbackContent}}
+                </div>
+                <div>
+                    回复信息:{{replyFeedbackContent}}
+                </div>
+            </div>
+        </div>
+        <div class="right_content">
+            <div class="right_content_title">
+                详情
+            </div>
+            <div class="content">
+                <p>提交人：{{submitter}}</p>
+                <p>提交时间：{{submitTime}}</p>
+            </div>
+            <div class="btns">
+                <button class="btn btn-success audit_button" @click="auditSuccess">通过</button>&nbsp;&nbsp;&nbsp;&nbsp;
+                <button class="btn btn-danger audit_button" @click="auditFail">不通过</button>&nbsp;&nbsp;&nbsp;&nbsp;
+                <button class="btn btn-warning" @click="backShenHe">返回</button>
+            </div>
+        </div>
+    </div>
+    <div class="add_model" v-show="feedback">
+        <div class="add_title">审核反馈
+            <span class="glyphicon glyphicon-remove add_model_close" @click="feedback=false"></span>
+        </div>
+        <div class="add_con">
+            <div class="add_model_con_row">
+                <span style="vertical-align: top;">建议:</span>
+                <textarea cols="50" rows="8" id="feedBackText"></textarea>
+            </div>
+            <div class="add_model_btns">
+                <button class="btn btn-primary" @click="feedbackSure">确定</button>
+                <button class="btn btn-danger" @click="feedback=false">取消</button>
+            </div>
+        </div>
+    </div>
+  </div>
+</template>
+<script>
+import vTitle from '../views/vTitle'
+export default {
+    data(){
+        return {
+            isShow: true,
+            isShow2: false,
+            feedback: false,
+            pageSet: {
+                totalRow: 1,//required option
+                language: 'cn',//default: 'cn'
+                pageSizeMenu: false,//default: [10, 20, 50, 100]
+                info: false,
+                align: 'center'
+            },
+            page:'',
+            rows:'',
+            auditSelectType:'',
+            auditStatus:'',
+            initData:[],
+            auditId:'',     //当前审核信息编号
+            auditType:'',   //当前审核信息类型
+            auditCon:'',    //当前审核信息内容
+            submitter:'',   //提交审核信息者
+            submitTime:'',   //提交审核信息时间
+            nairAuditSel:[],
+            nairAuditSelCon:[],
+            //userName:sessionStorage.userName
+            userRole:[],
+            options: [],
+            noDataShow: false,
+            resultReviewTh:[], 
+            resultReview: [],
+            zongji: [],
+            respondentName: [],
+            feedbackContent: '',
+            replyFeedbackContent:'',
+            auditConData: []
+        }
+    },
+    mounted(){
+        // var myName="<%=session.getAttribute("")%>";
+        // console.log(${session.kong})
+        
+        //this.auditInfoNum();    //审核&提醒消息数量
+        this.remindType();      //审核信息-类型
+    },
+    methods: {
+        pageChange(pInfo){
+            this.page = pInfo.pageNumber
+            this.rows = pInfo.pageSize
+            this.initReview(this.auditSelectType,this.auditStatus,this.page,this.rows)
+        },
+        initReview(auditSelectType,auditStatus,page,rows){
+            // if(this.auditSelectType == null){
+            //     this.auditSelectType = ""
+            // }
+            // if(this.auditStatus == null){
+            //     this.auditStatus = ""
+            // }
+            if($('#auditSelectType').val() == ''){
+                this.auditSelectType = this.$route.query.userRole
+            }else {
+                this.auditSelectType = $('#auditSelectType').val()
+            }
+            let param = new URLSearchParams()
+            param.append('auditType',this.auditSelectType)
+            param.append('auditStatus',auditStatus)
+            param.append('page',page)
+            param.append('rows',rows)
+            this.axios({
+                method: 'post',
+                url: 'informationaudit.do?FindInformationAudit',
+                data: param,
+            }).then(res=>{
+                if(res.data.e == 0){
+                    this.initData = res.data.o
+                    this.pageSet.totalRow = res.data.n;
+                    this.noDataShow = false
+                }else if(res.data.e == 1){
+                    this.noDataShow = true
+                    this.pageSet.totalRow = 1;
+                }
+            })
+        },
+        daiShenHe(type,auditContent,auditId,submitter,submitTime,auditStatus){
+            if(auditStatus == "待审核"){
+               $('.audit_button').attr('disabled',false)
+            }else {
+                $('.audit_button').attr('disabled',true)
+            }
+            this.auditType = type
+            this.auditCon = auditContent
+            this.auditId = auditId
+            let param = new URLSearchParams()
+            param.append('auditType', type)
+            param.append('auditContent', auditContent)
+            param.append('auditId', auditId)
+            this.axios({
+                method: 'post',
+                url: 'informationaudit.do?FindInformationAuditType',
+                data: param,
+            }).then(res=>{
+                if(res.data.e == 0){
+                    this.isShow = false
+                    this.isShow2 = true
+                    this.submitter = submitter
+                    this.submitTime = submitTime
+                    var types = res.data.two[0].types
+                    if(types == "效益评估结果审核"){
+                        this.resultReview = []
+                        for(var i =0;i <　res.data.o.length;i++){
+                            var respondentName = res.data.o[i].respondentName
+                            if(respondentName == "表头"){
+                                this.resultReviewTh = res.data.o[i].answerContent.split(',')
+                            }else if(respondentName =="总计"){
+                                this.zongji = res.data.o[i].answerContent.split(',')
+                            }else {
+                               var obj = new Object()
+                               obj.answer = res.data.o[i].answerContent.split('~@~')
+                               obj.respondentName = res.data.o[i].respondentName
+                               this.resultReview.push(obj)
+                            }
+                        }
+                        $('.content1').removeClass('hide')
+                        $('.content2').addClass('hide')
+                        $('.content3').addClass('hide')
+                    }else if(types == "反馈消息审核"){
+                        this.feedbackContent = res.data.o[0].feedbackContent
+                        this.replyFeedbackContent = res.data.o[0].replyFeedbackContent
+                        $('.content1').addClass('hide')
+                        $('.content2').addClass('hide')
+                        $('.content3').removeClass('hide')
+                    }else {
+                        this.auditConData = []
+                        for(var i = 0;i < res.data.o.length;i++){
+                            if(res.data.o[i].questionType != "填空"){
+                                var answerOptions = res.data.o[i].answerOptions
+                                if(answerOptions != null){
+                                    var answerOptionsArr = answerOptions.split(',')
+                                    var answerOptionsValue = res.data.o[i].answerOptionsValue
+                                    var answerOptionsValueArr = answerOptionsValue.split(',')
+                                }
+                                var data = [
+                                    {"answerOptions":answerOptionsArr[0],"answerOptionsValue":answerOptionsValueArr[0]},
+                                    {"answerOptions":answerOptionsArr[1],"answerOptionsValue":answerOptionsValueArr[1]},
+                                    {"answerOptions":answerOptionsArr[2],"answerOptionsValue":answerOptionsValueArr[2]},
+                                    {"answerOptions":answerOptionsArr[3],"answerOptionsValue":answerOptionsValueArr[3]},
+                                    {"answerOptions":answerOptionsArr[4],"answerOptionsValue":answerOptionsValueArr[4]}
+                                    ]
+                                res.data.o[i].data= data
+                            }else {
+                                var data = [
+                                    {
+                                    "answerOptions":null,"answerOptionsValue":null,"fillingType":res.data.o[i].fillingType
+                                    }
+                                ]
+                                res.data.o[i].data= data
+                            }
+                            this.auditConData = res.data.o
+                        }
+                        $('.content1').addClass('hide')
+                        $('.content2').removeClass('hide')
+                        $('.content3').addClass('hide')
+                    }
+                    
+                }else if(res.data.e == 2){
+                    this.$dialog.alert("问卷不存在")
+                }
+            })
+        },
+        auditSuccess(){
+            let param = new URLSearchParams()
+            param.append('auditType', this.auditType)
+            param.append('auditContent', this.auditCon)
+            param.append('auditId', this.auditId)
+            //param.append('auditor', this.userName)    //获取当前登录用户信息
+            this.axios({
+                method: 'post',
+                url: 'informationaudit.do?adopt',
+                data: param,
+            }).then(res=>{
+                console.log(res.data.o);
+                if(res.data.e == 0){
+                    this.$dialog.alert("审核通过  成功")
+                    this.isShow = true
+                    this.isShow2 = false
+                    this.initReview(this.auditSelectType,this.auditStatus,this.page,this.rows)
+                }else if(res.data.e == 1){
+                    this.$dialog.alert("审核通过  失败")
+                }
+            })
+        },
+        backShenHe(){
+            this.isShow = true
+            this.isShow2 = false
+        },
+        auditFail(){
+            this.feedback=true
+            $("#feedBackText").val("")
+        },
+        feedbackSure(){
+            var feedBackText = $("#feedBackText").val();
+            let param = new URLSearchParams()
+            param.append('auditId', this.auditId)
+            param.append('auditContent', this.auditCon)
+            param.append('auditType', this.auditType)
+            //param.append('auditor', this.userName)    //获取当前登录用户信息
+            param.append('remindInformationContent',feedBackText)
+            
+            this.axios({
+                method: 'post',
+                url: 'informationaudit.do?notThrough',
+                data: param,
+            }).then(res=>{
+                console.log(res.data.o);
+                if(res.data.e == 0){
+                    this.$dialog.alert("反馈成功")
+                    this.feedback = false
+                    this.isShow = true
+                    this.isShow2 = false
+                    this.initReview(this.auditSelectType,this.auditStatus,this.page,this.rows)
+                }else if(res.data.e == 1){
+                    this.$dialog.alert("反馈失败")
+                }
+            })
+        },
+         remindType(){
+            if(this.$route.query.userType == '值班员'){
+                // this.userRole=this.$route.query.userRole.split(","); 
+                // html="<option value='' selected>全部</option>";
+                // for(var i=0;i<this.userRole.length;i++){
+                //     var obj = new Object()
+                //     html+="<option value='"+this.userRole[i]+"'>"+this.userRole[i]+"</option>"
+                // }
+                this.userRole = this.$route.query.userRole.split(","); 
+                console.log(this.userRole)
+                var obj = new Object()
+                for(var i=0;i<this.userRole.length;i++){
+                    obj = {
+                        'name' : this.userRole[i]
+                    }
+                    console.log(obj)
+                    this.options.push(obj)
+                }
+                console.log(this.options)
+            }else{
+                // html+="<option value='' selected>全部</option>"
+                //     +"<option value='效益评估结果审核'>效益评估结果审核</option>"
+                //     +"<option value='反馈消息审核'>反馈消息审核</option>"
+                //     +"<option value='问卷审核'>问卷审核</option>"
+                this.options = [
+                    {'name':'效益评估结果审核'},
+                    {'name':'反馈消息审核'},
+                    {'name':'问卷审核'}
+                ]
+            }
+            //$("#auditSelectType").html(html);
+        },
+        auditInfoNum(){
+            let param = new URLSearchParams()
+            param.append('auditType', this.$route.query.userRole)
+            this.axios({
+                method: 'post',
+                url: 'informationaudit.do?FindInformationAuditCount',
+                data: param,
+            }).then(res=>{
+                console.log(res.data.e);
+                if(res.data.e == 0){
+                    bus.$emit('auditCount',res.data.o.auditNum);
+                    bus.$emit('remindCount',res.data.o.remindNum);
+                    bus.$emit('totalAuditNum',res.data.o.totalQuantity)
+                }else if(res.data.e == 1){
+                    this.$dialog.alert("查询失败")
+                    this.pageSet.totalRow = 1;
+                }
+            })
+        }
+    }
+}
+</script>
+<style scoped>
+.left_content,.right_content {
+    height: 100%;
+}
+.left_content,.right_content {
+    float: left;
+}
+.right_content {
+    width: 300px;
+    background: #fff;
+}
+.left_content {
+    width: calc(100% - 300px);
+    background: rgba(0,0,0,.1);
+    height: 100%;
+    overflow: auto;
+}
+.left_content .content {
+    width: 94%;
+    height: 100%;
+    padding: 4% 2%;
+    margin: 0 auto;
+    background: #fff;
+}
+.left_content .content div p:nth-child(2){
+    color: #1975b6;
+}
+.right_content_title {
+    width: 100%;
+    height: 40px;
+    line-height: 40px;
+    text-align: center;
+    color: #fff;
+    background: #1975b6;
+}
+.right_content .content  {
+    padding: 20px;
+}
+.right_content .btns {
+    padding: 0 20px;
+}
+.add_model{
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%,-50%);
+    border: 2px solid #3967AE;
+    border-radius: 5px;
+    background: #fff;
+}
+.add_title{
+    color: #3967AE;
+    background: #F8F8FA;
+    padding: 10px 15px;
+}
+.add_model_close{
+    float: right;
+    font-size: 18px;
+    cursor: pointer;
+}
+.add_con{
+    padding: 15px;
+}
+.add_model_con_row{
+    padding: 7px 0;
+    font-size: 12px;
+}
+.add_model_con_row textarea {
+    border: 1px solid #ccc;
+
+}
+.add_model_btns{
+    text-align: center;
+    padding-top: 15px;
+}
+.auditAnswerUl{
+    margin-left:20px;
+}
+.auditAnswerUl li{
+    padding:5px 0;
+}
+.content1 table{
+    min-width: 1000px;
+    overflow: scroll;
+    max-height: 700px;
+}
+.content3>div{
+    line-height:36px;
+    padding: 0 10px;
+}
+</style>
+

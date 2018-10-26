@@ -1,0 +1,319 @@
+<template>
+    <div class="bodys">
+        <div class="title">答题排行榜</div>
+        <div style="background:#fff;margin-top:15px;">
+            <header>
+                <span class="selfRank">NO.{{row}}</span>
+                <div>
+                    <img :src="myAvatar" alt="我的头像">
+                </div>
+                <div>
+                    <div class="rankName">{{userName}}</div>
+                    <div class="count">答题{{count}}次</div>
+                </div>
+            </header>
+            <!-- 总体排行榜 -->
+            <div class="allRank"> 
+                <ul class="allRankUl">
+                    <li v-for="item in initData">
+                        <span class="rankNum">NO.{{item.row}}</span>
+                        <img :src="item.headImageLink" alt="李四的头像">
+                        <div>
+                            <div class="rankName">{{item.userName}}</div>
+                            <div class="count">答题{{item.count}}次</div>
+                        </div>
+                    </li>
+                    <!-- <li>
+                        <span class="rankNum">NO.2</span>
+                        <img src="" alt="张三的头像">
+                        <div>
+                            <div class="rankName">张三</div>
+                            <div class="count">答题17次</div>
+                        </div>
+                    </li>
+                    <li>
+                        <span class="rankNum">NO.3</span>
+                        <img src="" alt="王五的头像">
+                        <div>
+                            <div class="rankName">王五</div>
+                            <div class="count">答题16次</div>
+                        </div>
+                    </li>
+                    <li>
+                        <span class="rankNum">NO.4</span>
+                        <img src="" alt="周六的头像">
+                        <div>
+                            <div class="rankName">周六</div>
+                            <div class="count">答题15次</div>
+                        </div>
+                    </li>
+                    <li>
+                        <span class="rankNum">NO.5</span>
+                        <img src="" alt="田七的头像">
+                        <div>
+                            <div class="rankName">田七</div>
+                            <div class="count">答题14次</div>
+                        </div>
+                    </li> -->
+                </ul>
+            </div>
+        </div>
+    </div>
+</template>
+<script>
+export default {
+    data(){
+        return {
+            initData: [],
+            myAvatar: '',
+            count: '',
+            row: '',
+            userName: ''
+        }
+    },
+    mounted(){
+        this.initWx();
+        this.initWeRank();
+    },
+    methods: {
+        initWeRank(){
+            let param = new URLSearchParams()
+            //alert(this.$route.query.openId)
+            param.append('openId',this.$route.query.openId)
+            this.axios({
+                method: 'post',
+                url: 'AnswerList.do?findAnswerListWeChat',
+                data: param
+            }).then(res=>{
+                if(res.data.e ==0){
+                    this.myAvatar = res.data.two[0].headImageLink 
+                    this.count = res.data.two[0].count
+                    this.row = res.data.two[0].row
+                    this.userName = res.data.two[0].userName
+                    this.initData = res.data.o
+                }
+            })
+        },
+        initWx(){
+            var url=location.href.split('#')[0];
+            $.ajax({
+                type: "POST",
+                url: "JsLogin.do?JsValidate",
+                data: {
+                    "url": url
+                },
+                dataType: "json",
+                async:false,
+                success: function (data) {
+                    console.log(data);
+                    wx.config({
+                        debug: false, // 开启调试模式,调用的所有api的返回值会在客户端alert出来，若要查看传入的参数，可以在pc端打开，参数信息会通过log打出，仅在pc端时才会打印。
+                        appId: data.appId, // 必填，公众号的唯一标识
+                        timestamp: data.timestamp, // 必填，生成签名的时间戳
+                        nonceStr: data.nonceStr, // 必填，生成签名的随机串
+                        signature: data.signature,// 必填，签名，见附录1
+                        jsApiList: [
+                            'checkJsApi',
+                            'onMenuShareTimeline',
+                            'onMenuShareAppMessage',
+                            'onMenuShareQQ',
+                            'onMenuShareWeibo',
+                            'onMenuShareQZone',
+                            'hideMenuItems',
+                            'showMenuItems',
+                            'hideAllNonBaseMenuItem',
+                            'showAllNonBaseMenuItem',
+                            'translateVoice',
+                            'startRecord',
+                            'stopRecord',
+                            'onVoiceRecordEnd',
+                            'playVoice',
+                            'onVoicePlayEnd',
+                            'pauseVoice',
+                            'stopVoice',
+                            'uploadVoice',
+                            'downloadVoice',
+                            'chooseImage',
+                            'previewImage',
+                            'uploadImage',
+                            'downloadImage',
+                            'getNetworkType',
+                            'openLocation',
+                            'getLocation',
+                            'hideOptionMenu',
+                            'showOptionMenu',
+                            'closeWindow',
+                            'scanQRCode',
+                            'chooseWXPay',
+                            'openProductSpecificView',
+                            'addCard',
+                            'chooseCard',
+                            'openCard'
+                        ] // 必填，需要使用的JS接口列表，所有JS接口列表见附录2
+                    });
+                }
+            });
+            wx.ready(function(){
+                // wx.checkJsApi1 判断当前版本是否支持指定 JS 接口，支持批量判断
+                wx.checkJsApi({
+                    jsApiList: [
+                    'getNetworkType',
+                    'previewImage'
+                    ],
+                    success: function (res) {
+                    console.log(res);
+                    }
+                });
+
+                //隐藏浏览器中右上角的三个点内的菜单
+                wx.hideMenuItems({
+                    menuList: [
+                    'menuItem:readMode', // 阅读模式
+                    'menuItem:copyUrl', // 复制链接
+                    'menuItem:share:timeline',
+                    'menuItem:share:appMessage',
+                    'menuItem:share:qq',
+                    'menuItem:share:QZone',
+                    'menuItem:openWithQQBrowser',
+                    'menuItem:share:email',
+                    'menuItem:favorite',
+                    'menuItem:openWithSafari'
+                    ],
+                    success: function (res) {
+                    //alert('已隐藏“阅读模式”，“复制链接”等按钮');
+                    console.log('已隐藏“阅读模式”，“复制链接”等按钮')
+                    },
+                    fail: function (res) {
+                    //alert(JSON.stringify(res));
+                    console.log(JSON.stringify(res))
+                    }
+                });
+            });
+            wx.error(function(res){
+                // config信息验证失败会执行error函数，如签名过期导致验证失败，具体错误信息可以打开config的debug模式查看，也可以在返回的res参数中查看，对于SPA可以在这里更新签名。
+                //发生错误就是ticket失效了，重新调用ajax访问后台获取信的凭借接口
+                var url=location.href.split('#')[0];
+                $.ajax({
+                    type: "Get",
+                    url: "JsLogin.do?jsTicket?",
+                    async:false,
+                    success: function (data) {
+                    $.ajax({
+                        type: "POST",
+                        url: "http://szty.z798.cn/Create/qixi/servlet.do?",
+                        data: {
+                        "url": url
+                        },
+                        dataType: "json",
+                        async:false,
+                        success: function (data) {
+                            console.log(data);
+                            wx.config({
+                                debug: true, // 开启调试模式,调用的所有api的返回值会在客户端alert出来，若要查看传入的参数，可以在pc端打开，参数信息会通过log打出，仅在pc端时才会打印。
+                                appId: data.appId, // 必填，公众号的唯一标识
+                                timestamp: data.timestamp, // 必填，生成签名的时间戳
+                                nonceStr: data.nonceStr, // 必填，生成签名的随机串
+                                signature: data.signature,// 必填，签名，见附录1
+                                jsApiList: [
+                                    'checkJsApi',
+                                    'onMenuShareTimeline',
+                                    'onMenuShareAppMessage',
+                                    'onMenuShareQQ',
+                                    'onMenuShareWeibo',
+                                    'onMenuShareQZone',
+                                    'hideMenuItems',
+                                    'showMenuItems',
+                                    'hideAllNonBaseMenuItem',
+                                    'showAllNonBaseMenuItem',
+                                    'translateVoice',
+                                    'startRecord',
+                                    'stopRecord',
+                                    'onVoiceRecordEnd',
+                                    'playVoice',
+                                    'onVoicePlayEnd',
+                                    'pauseVoice',
+                                    'stopVoice',
+                                    'uploadVoice',
+                                    'downloadVoice',
+                                    'chooseImage',
+                                    'previewImage',
+                                    'uploadImage',
+                                    'downloadImage',
+                                    'getNetworkType',
+                                    'openLocation',
+                                    'getLocation',
+                                    'hideOptionMenu',
+                                    'showOptionMenu',
+                                    'closeWindow',
+                                    'scanQRCode',
+                                    'chooseWXPay',
+                                    'openProductSpecificView',
+                                    'addCard',
+                                    'chooseCard',
+                                    'openCard'
+                                ] // 必填，需要使用的JS接口列表，所有JS接口列表见附录2
+                            });
+                        }
+                    });
+                    }
+                });
+            });
+        },
+    }
+}
+</script>
+<style scoped>
+    .bodys{
+        border:none;
+        width: 100%;
+        background: #F3F3F5;
+        padding:0 3px;
+    }
+    .title{
+        text-align: center;
+        font-size: 26px;
+        background:#1975B6;
+        color: #ffffff;
+        padding:10px 0;
+    }
+    .count{
+        color: #E9CA3B;
+    }
+    header{
+        position: relative;
+        text-align: center;
+        font-size: 16px;
+        padding: 10px;
+    }
+    .selfRank{
+        position: absolute;
+        left: 0;
+        top: 50%;
+        transform: translate(0,-50%);
+        background: #E74F20;
+        color: #fff;
+        padding: 5px 20px;
+        border-top-right-radius: 15px;
+        border-bottom-right-radius: 15px;
+    }
+    .allRankUl li{
+        padding: 5px 15px;
+        font-size: 16px;
+        border-top:2px solid #F3F3F5;
+    }
+    .allRankUl li span.rankNum{
+        display: inline-block;
+        width: 50px;
+        text-align: center;
+        vertical-align: super;
+        color: #E9CA3B;
+    }
+    .allRankUl li img{
+        margin:0 20px;
+        vertical-align: super;
+        width:35px;
+    }
+    .allRankUl li>div{
+        display: inline-block;
+    }
+</style>

@@ -1,0 +1,522 @@
+<template>
+    <div class="main_box">
+      <v-title>
+        <li>
+          <a href="#/surveyResults">调查结果统计</a>
+        </li>
+        <li class="active" slot="name">{{nairName}}</li>
+      </v-title>
+      <div class="export">
+        <label for="checkAll" class="checkAll">
+            <input type="checkbox" v-model='checked' v-on:click='checkedAll' id="checkAll">
+            全选
+        </label>
+        <button class="btn btn-info" @click="exportEcharts">导出</button>
+      </div>
+      <div class="result_analyse">
+        <!-- <div style="padding: 10px 20px;margin-bottom: 8px;">
+            <input type="checkbox" @click="checkedAll" :checked="checkedFlag()">
+        </div> -->
+        <div class="subject" :id="item[0].questionNameType.questionnamevalId" v-for="(item,index) in SatisfactionInfo" v-show="!noDataShow">
+            <!-- 左侧选项分析 -->
+            <div class="subject_left">
+                <div class="subject_left_title">
+                    <input type="checkbox" @click.stop="stop" :value="item[0].questionNameType.questionnamevalId" v-model="questionId">
+                    <label class="name" for="">第{{index+1}}题:{{item[0].questionNameType.questionNamemc}}({{item[0].questionNameType.questionNameTypemc}}题)</label>
+                </div>
+                <div class="tab" v-if="item[0].questionNameType.questionNameTypemc=='单选'">
+                    <table class="table table-bordered">
+                        <tbody>
+                            <tr class="danxuan" v-for="item2 in item[0].data">
+                                <td class="td1">{{item2.singleOpt}}</td>
+                                <td class="td2">{{item2.singleOptTxt}}</td>
+                                <td class="td3">{{item2.singleOptNum}}</td>
+                                <td class="td4">{{item2.singleOptPer}}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="tab" v-else-if="item[0].questionNameType.questionNameTypemc=='多选'">
+                    <table class="table table-bordered">
+                        <tbody>
+                            <tr class="duoxuan" v-for="item2 in item[0].data">
+                                <td class="td1">{{item2.singleOpt}}</td>
+                                <td class="td2">{{item2.singleOptTxt}}</td>
+                                <td class="td3">{{item2.singleOptPer}}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="tab" v-else-if="item[0].questionNameType.questionNameTypemc=='填空,整数'||item[0].questionNameType.questionNameTypemc=='填空,小数'">
+                    <table class="table table-bordered">
+                      <tbody>
+                        <tr class="tiankong1" v-for="item2 in item[0].data">
+                            <td class="td1">{{item2.singleOptTxt}}</td>
+                            <td class="td2">{{item2.singleOptNum}}</td>
+                            <td class="td3">{{item2.singleOptPer}}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                </div>
+                <div class="tab" v-else-if="item[0].questionNameType.questionNameTypemc=='填空,文本'">
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>答题者</th>
+                                <th>答案</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="tiankong2" v-for="item2 in item[0].data">
+                                <td class="userNames">{{item2.userNames}}</td>
+                                <td class="titleAnswer">{{item2.titleAnswer}}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+             
+            <div class="subject_right" :id="index">
+                <ul class="subject_right_ul"
+                v-if="item[0].questionNameType.questionNameTypemc=='单选'
+                ||item[0].questionNameType.questionNameTypemc=='填空,整数'
+                ||item[0].questionNameType.questionNameTypemc=='填空,小数'">
+                    <li v-for="(item2,index2) in echarts"
+                    @click.stop="cutEcharts(index2,item[0].echartsArr,item[0].echartsDataX,item[0].echartsDataY,index,item[0].questionNameType.questionnamevalId)">
+                    {{item2}}
+                    </li>
+                </ul>
+                <div 
+                :id="'echarts'+index" 
+                style="height: 255px;width: 600px;margin: 0 auto;" 
+                v-if="item[0].questionNameType.questionNameTypemc=='单选'
+                ||item[0].questionNameType.questionNameTypemc=='填空,整数'
+                ||item[0].questionNameType.questionNameTypemc=='填空,小数'"></div>
+            </div>
+            <img src="static/down.png" style="float:right;" alt="">
+        </div> 
+        <dir v-show="noDataShow" style="text-align: center;font-size:24px;color: #1975b6;">
+            暂无数据
+        </dir>
+      </div>
+  </div>
+</template>
+<script>
+import vTitle from "../views/vTitle";
+// import Subject from "../views/Subject";
+export default {
+    data() {
+        return {
+            naireId:this.$route.query.id,
+            nairName:this.$route.query.nairName,
+            numbers:'1',
+            questionName: [],
+            SatisfactionInfo:[],       //满意度调查问卷数据
+            answerCon:[],              //每个问题答案
+            answerIndex:'0',           //答案对应的题目下标
+            echarts:['饼状图','圆环图','柱状图','条形图'],
+            echartsData:[],
+            echartsDataX:[],
+            echartsDataY:[],
+            echartsLegend:[],
+            active:0,
+            questionId:[],
+            all:[],
+            imgUrl:{},
+            noDataShow: false,
+            noDatashow2: false,
+            initTable: [],
+            exportPicArray:[],
+            singleCon:[],   //单选题选项
+            multiCon:[],    //多选选项
+            blankTxtCon:[],     //填空选项
+            checked: true
+        }
+    },
+    components: { vTitle },
+    mounted(){
+        this.initSatisfaction();
+        this.initClick()
+        setTimeout(()=>{
+            this.SatisfactionInfo.forEach((item)=> {
+                this.questionId.push(item[0].questionNameType.questionnamevalId);
+            });
+        },500)
+    },
+    methods: {
+        initSatisfaction(){         //所有题目列表
+            let param = new URLSearchParams()
+            param.append('questionnaireId', this.naireId)     //问卷ID
+            param.append('questionnaireName', this.nairName)   //问卷名称
+            this.axios({
+                method: 'post',
+                url: 'questionnaireAnswer.do?InquireDetailss',
+                async:false,    //或false,是否异步
+                data: param,
+            }).then(res=>{
+                 for(let i=0;i<res.data.o.length;i++){
+                    var name = res.data.o[i][0].questionNameType.questionNameTypemc
+                    if(name == "单选"){
+                        //var singleOption = [];
+                        // for(var key in res.data.o[i][0].data){
+                        //     singleOption.push(res.data.o[i][0].data[key])
+                        // }
+                        var singleOption = res.data.o[i][0].data.content.split('~@~')
+                        res.data.o[i][0].data=[];
+                        res.data.o[i][0].echartsArr=[];
+                        res.data.o[i][0].echartsDataX = []
+                        res.data.o[i][0].echartsDataY = []
+                        for(let j=0;j<singleOption.length;j++)
+                        {
+                            res.data.o[i][0].data.push({
+                                singleOpt:singleOption[j].split(':')[0],
+                                singleOptTxt:singleOption[j].split(':')[1].split(',')[0],
+                                singleOptNum:singleOption[j].split(':')[1].split(',')[1],
+                                singleOptPer:singleOption[j].split(':')[1].split(',')[2]
+                            })
+                            res.data.o[i][0].echartsArr.push({
+                                value:singleOption[j].split(':')[1].split(',')[2].replace('%',''),
+                                name:singleOption[j].split(':')[1].split(',')[0]
+                            })
+                            res.data.o[i][0].echartsDataX.push(singleOption[j].split(':')[1].split(',')[0])
+                            res.data.o[i][0].echartsDataY.push(singleOption[j].split(':')[1].split(',')[2].replace('%',''))
+                        }
+                        setTimeout(()=>{
+                            this.cutEcharts(0,res.data.o[i][0].echartsArr,res.data.o[i][0].echartsDataX,res.data.o[i][0].echartsDataY,i,res.data.o[i][0].questionNameType.questionnamevalId);
+                        },150)
+                    }else if(name == "多选"){
+                        // var singleOption = [];
+                        // for(var key in res.data.o[i][0].data){
+                        //     singleOption.push(res.data.o[i][0].data[key])
+                        // }
+                        console.log(res.data.o[i][0].data.content)
+                        var singleOption = res.data.o[i][0].data.content.split('~@~')
+                        console.log(singleOption)
+                        res.data.o[i][0].data=[];
+                        for(var j=0;j<singleOption.length;j++){
+                            res.data.o[i][0].data.push({
+                                singleOpt:singleOption[j].split(':')[0],
+                                singleOptTxt:singleOption[j].split(':')[1].split(',')[0],
+                                singleOptPer:singleOption[j].split(':')[1].split(',')[1]
+                            })
+                        }
+                    }else if(name=="填空,整数"||name=="填空,小数"){
+                        // var singleOption = [];
+                        // for(var key in res.data.o[i][0].data){
+                        //     singleOption.push(res.data.o[i][0].data[key])
+                        // }
+                        console.log(res.data.o[i][0].data.content)
+                        var singleOption = res.data.o[i][0].data.content.split('~@~')
+                        console.log(singleOption)
+                        res.data.o[i][0].data=[];
+                        res.data.o[i][0].echartsArr=[];
+                        res.data.o[i][0].echartsDataX = []
+                        res.data.o[i][0].echartsDataY = []
+                        for(var j=0;j<singleOption.length;j++){
+                            res.data.o[i][0].data.push({
+                                singleOptTxt:singleOption[j].split(',')[0],
+                                singleOptNum:singleOption[j].split(',')[1],
+                                singleOptPer:singleOption[j].split(',')[2]
+                            })
+                            res.data.o[i][0].echartsArr.push({
+                                value:singleOption[j].split(',')[2].replace('%',''),
+                                name:singleOption[j].split(',')[0]
+                            })
+                            res.data.o[i][0].echartsDataX.push(singleOption[j].split(',')[0])
+                            res.data.o[i][0].echartsDataY.push(singleOption[j].split(',')[2].replace('%',''))
+                        }
+                        setTimeout(()=>{
+                           this.cutEcharts(0,res.data.o[i][0].echartsArr,res.data.o[i][0].echartsDataX,res.data.o[i][0].echartsDataY,i,res.data.o[i][0].questionNameType.questionnamevalId);
+                        },150)
+                    }else {
+                       var singleOption = [];
+                       for(var t = 1; t < res.data.o[i].length;t++){
+                           singleOption.push(res.data.o[i][t])
+                       }
+                       res.data.o[i][0].data=[];
+                        for(var j=0;j<singleOption.length;j++){
+                            res.data.o[i][0].data.push({
+                                titleAnswer:singleOption[j].titleAnswer,
+                                userNames:singleOption[j].userNames
+                            })
+                        }
+                    }  
+                }
+                this.SatisfactionInfo = res.data.o
+            })
+        }, 
+        cutEcharts(index,echartsArr,echartsDataX,echartsDataY,id,questionId){       //当前查看的题目的echarts加载
+            // 基于准备好的dom，初始化echarts实例
+            var myChart = this.$echarts.init(document.getElementById('echarts'+id));
+            if(index == 0){   
+                myChart.setOption({
+                    tooltip : {
+                        trigger: 'item',
+                        formatter: "{b} : {c}"
+                    },
+                    animation: false,
+                    xAxis: { show:false },
+                    yAxis: { show:false },
+                    series : [{
+                        type: 'pie',
+                        radius : '55%',
+                        data:echartsArr
+                    }]
+                },true);
+                $('#'+id+' .subject_right_ul li').eq(0).addClass('active').siblings().removeClass('active')
+            }else if(index == 1){
+                myChart.setOption({
+                    tooltip : {
+                        trigger: 'item',
+                        formatter: "{a} <br/>{b}: {c} ({d}%)"
+                    },
+                    animation: false,
+                    xAxis: { show:false },
+                    yAxis: { show:false },
+                    series : [{
+                        type: 'pie',
+                        radius: ['50%', '70%'],
+                        data:echartsArr
+                    }]
+                },true);
+               $('#'+id+' .subject_right_ul li').eq(1).addClass('active').siblings().removeClass('active')
+            }else if(index == 2){
+                myChart.setOption({
+                xAxis: {
+                    show:true,
+                    type: 'category',
+                    data: echartsDataX
+                },
+                animation: false,
+                yAxis: { show:true,type: 'value',name: '百分比%'},
+                series: [{
+                    data: echartsDataY,
+                    type: 'bar'
+                }]
+                },true);
+                $('#'+id+' .subject_right_ul li').eq(2).addClass('active').siblings().removeClass('active')
+            }else if(index == 3){
+                myChart.setOption({
+                xAxis: { 
+                    type: 'value',
+                    name: '百分比%'
+                },
+                yAxis: {
+                    type: 'category',
+                    data: echartsDataX
+                },
+                animation: false,
+                series: [{
+                    data: echartsDataY,
+                    type: 'bar'
+                }]
+                },true);
+                $('#'+id+' .subject_right_ul li').eq(3).addClass('active').siblings().removeClass('active')
+            }
+            var img = new Image();
+            img.src = myChart.getDataURL({
+                pixelRatio: 2,
+                backgroundColor: '#fff'
+            });
+            if(this.imgUrl[questionId]==null||this.imgUrl[questionId]==undefined||this.imgUrl[questionId]==""){
+                this.imgUrl[questionId]=img.src;
+            }
+            this.imgUrl[questionId]=img.src;
+        },
+        exportEcharts(){
+            this.all = []
+            if(this.questionId == ""){  //页面无数据
+                this.$dialog.alert("请选择数据再进行导出")
+            }else{   //页面有数据ss
+                this.all = []
+                for(let i = 0;i<this.questionId.length;i++){
+                    var name = $('#'+this.questionId[i]+' .subject_left .subject_left_title').find('.name').text()
+                    var questionNamemc = name.split('(')[0]
+                    var name3 =  name.split('(')[1]
+                    var questionNameTypemc = name3.split(')')[0]
+                    var txt = [];
+                    var imgUrl = this.imgUrl[this.questionId[i]]
+                    if(questionNameTypemc == "单选题"){
+                        for(var j = 0;j<$('#'+this.questionId[i]).find('.tab tr.danxuan').length;j++){
+                            var obj = new Object()
+                            var td = ""
+                            td += $('#'+this.questionId[i]).find('.tab tr.danxuan').eq(j).find('td.td1').text()+'~@~';
+                            td += $('#'+this.questionId[i]).find('.tab tr.danxuan').eq(j).find('td.td2').text()+'~@~';
+                            td += $('#'+this.questionId[i]).find('.tab tr.danxuan').eq(j).find('td.td3').text()+'~@~';
+                            td += $('#'+this.questionId[i]).find('.tab tr.danxuan').eq(j).find('td.td4').text()
+                            obj.content = td
+                            txt.push(obj)
+                        }
+                    }else if(questionNameTypemc == "多选题"){
+                        for(var j = 0;j<$('#'+this.questionId[i]).find('.tab tr.duoxuan').length;j++){
+                            var obj = new Object()
+                            var td = ""
+                            td += $('#'+this.questionId[i]).find('.tab tr.duoxuan').eq(j).find('td.td1').text()+'~@~';
+                            td += $('#'+this.questionId[i]).find('.tab tr.duoxuan').eq(j).find('td.td2').text()+'~@~';
+                            td += $('#'+this.questionId[i]).find('.tab tr.duoxuan').eq(j).find('td.td3').text()
+                            obj.content = td
+                            txt.push(obj)
+                        }
+                    }else if(questionNameTypemc == "填空,小数题" || questionNameTypemc=="填空,整数题"){
+                         for(var j = 0;j<$('#'+this.questionId[i]).find('.tab tr.tiankong1').length;j++){
+                            var obj = new Object()
+                            var td = ""
+                            td += $('#'+this.questionId[i]).find('.tab tr.tiankong1').eq(j).find('td.td1').text()+'~@~';
+                            td += $('#'+this.questionId[i]).find('.tab tr.tiankong1').eq(j).find('td.td2').text()+'~@~';
+                            td += $('#'+this.questionId[i]).find('.tab tr.tiankong1').eq(j).find('td.td3').text()
+                            obj.content = td
+                            txt.push(obj)
+                        }
+                    }else {
+                        for(var j = 0;j<$('#'+this.questionId[i]).find('.tab tr.tiankong2').length;j++){
+                            var obj = new Object()
+                            obj.titleAnswer = $('#'+this.questionId[i]).find('.tab tr.tiankong2').eq(j).find('td.titleAnswer').text()
+                            obj.userNames = $('#'+this.questionId[i]).find('.tab tr.tiankong2').eq(j).find('td.userNames').text()
+                            txt.push(obj)
+                        }
+                    }
+                    var result = {
+                        'questionNamemc':questionNamemc,
+                        'questionNameTypemc':questionNameTypemc,
+                        'data':txt,
+                        'imgUrl':imgUrl
+                    }
+                    this.all.push(result)
+                }
+                let param = new URLSearchParams()
+                param.append('question',this.nairName)
+                param.append('resultArray',JSON.stringify(this.all))
+                this.axios({
+                    method: 'post',
+                    url: 'questionnaireAnswer.do?publicExports',         
+                    data: param,
+                }).then(res=>{
+                    if(res.data.e == 0){        
+                        window.location.href = "questionnaireAnswer.do?download&filePath="+res.data.o    
+                    }else if(res.data.e == 1){
+                        this.$dialog.alert("导出失败")
+                    }
+                })
+            } 
+        },
+        initClick(){
+            $(document).off("click").on("click",".subject",function() {
+                $(this).find('div.tab').slideToggle()
+                $(this).find('div.subject_right').slideToggle()
+            });
+        },
+        stop(){
+            console.log('阻止事件冒泡')
+        },
+        checkedAll: function() {
+            if (this.checked) {//实现反选
+                this.questionId = [];
+                $('.subject').find('div.tab').slideUp()
+                $('.subject').find('div.subject_right').slideUp()
+            }else{//实现全选
+                this.questionId = [];
+                this.SatisfactionInfo.forEach((item)=> {
+                    this.questionId.push(item[0].questionNameType.questionnamevalId);
+                });
+                $('.subject').find('div.tab').slideDown()
+                $('.subject').find('div.subject_right').slideDown()
+            }
+        }
+    },
+    watch: {//深度 watcher
+    'questionId': {
+        handler: function (val, oldVal) { 
+            if (this.SatisfactionInfo.length === this.questionId.length) {
+                this.checked=true;
+            }else{
+                this.checked=false;
+            }
+        },
+         deep: true
+        }
+    }
+};
+</script>
+<style scoped>
+.main_box {
+  position: relative;
+}
+.export {
+  position: absolute;
+  top: 4px;
+  right: 2%;
+}
+.result_analyse {
+  width: 96%;
+  margin: 0 auto;
+}
+.subject{
+    background: #fff;
+    padding: 10px 20px;
+    /* border: 1px solid #BBBBBB; */
+    margin-bottom: 8px;
+    cursor: pointer;
+}
+.subject_left{
+    width: 40%;
+}
+.subject_right{
+  width: 55%;
+}
+.subject_left img{
+  float: right;
+}
+.subject_left_title{
+    padding: 10px 0;
+    color: #1975b6;
+}
+.subject_left_title label {
+    cursor: pointer;
+}
+.subject_left_answer{
+    margin-left: 20px;
+}
+.subject_left_answer li{
+    line-height: 50px;
+}
+.subject_left,.subject_right{
+    display: inline-block;
+    vertical-align: top;
+}
+.subject_right_ul{
+    display: block;
+    width: 255px;
+    margin: 0 auto;
+} 
+.subject_right_ul:after{
+    content: '';
+    display: block;
+    clear: both;
+}
+.subject_right_ul li{
+    float: left;
+    border: 1px solid #63B4EC;
+    border-radius: 3px;
+    padding: 3px 10px;
+    cursor: pointer;
+}
+.subject_right_ul li.active {
+  border: none;
+  background: #63B4EC;
+  color: #fff;
+}
+.echarts{
+    border: 1px solid #ddd;
+    margin-top: 30px;
+}
+.checkAll {
+    padding: 6px;
+    vertical-align: middle;
+    margin: 0;
+    color: #fff;
+    background-color: #5bc0de;
+    border-color: #46b8da;
+    border-radius: 4px;
+    cursor: pointer;
+}
+</style>
